@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@source "../**/*.{html,js}";
+
+@theme {
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@import "./base.css";
+@import "./components.css";
+@import "./setup-layout.css";
+@import "./setup-dashboard.css";
+@import "./setup-library.css";
+@import "./setup-editor.css";
+@import "./setup-modal.css";
+@import "./panel.css";

@@ -1,0 +1,170 @@
+.slot-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  width: fit-content;
+  max-width: 100%;
+  gap: 18px;
+  margin-bottom: 28px;
+  overflow-x: auto;
+  padding: 2px 4px 6px;
+  scrollbar-width: none;
+}
+
+.slot-row::-webkit-scrollbar {
+  display: none;
+}
+
+.slot-shell {
+  position: relative;
+  flex: 0 0 176px;
+  width: 176px;
+  min-height: 198px;
+  overflow: hidden;
+}
+
+.slot-shell.drag-over .slot-card {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.slot-shell > .gu-transit,
+.slot-shell > .suggestion-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 198px;
+  margin: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.slot-card {
+  position: relative;
+  min-height: 198px;
+  width: 100%;
+  height: 100%;
+  padding: 24px 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, #ffffff 0%, var(--surface-2) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.slot-card.empty {
+  justify-content: center;
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.slot-position {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.remove-slot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--text-2);
+}
+
+.slot-icon {
+  width: auto;
+  height: auto;
+  display: grid;
+  place-items: center;
+  margin-top: 22px;
+  color: var(--text-1);
+}
+
+.slot-icon .ui-icon,
+.shortcut-icon .ui-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.slot-icon .icon-fallback,
+.shortcut-icon .icon-fallback {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.slot-label {
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.slot-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.empty-hint,
+.step-preview-text {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.slot-card .key-chips {
+  gap: 6px;
+  justify-content: center;
+  max-width: 100%;
+  margin-top: 10px;
+}
+
+.slot-card .key-chip {
+  min-height: 32px;
+  max-width: 100%;
+  padding: 0 11px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+
+@media (max-width: 720px) {
+  .slot-row {
+    gap: 12px;
+  }
+
+  .slot-shell {
+    flex-basis: 164px;
+    width: 164px;
+  }
+
+  .slot-shell > .gu-transit,
+  .slot-shell > .suggestion-card {
+    min-height: 198px;
+  }
+
+  .slot-card {
+    width: 100%;
+  }
+}

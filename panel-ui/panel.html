@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>KeyPilot Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+  </head>
+  <body class="panel-page">
+    <div class="panel-preview-shell">
+      <div class="panel-device">
+        <div class="panel-device-notch" aria-hidden="true"></div>
+        <main class="panel-frame">
+          <header class="panel-header">
+            <div id="panelAppName" class="panel-title">KeyPilot</div>
+          </header>
+
+          <section class="panel-viewport">
+            <div id="panelTrack" class="panel-track"></div>
+          </section>
+          <div id="panelErrorToast" class="panel-error-toast" aria-live="polite" hidden></div>
+        </main>
+      </div>
+    </div>
+
+    <script type="module" src="/panel/main.js?v=20260415d"></script>
+  </body>
+</html>

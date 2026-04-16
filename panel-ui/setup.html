@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KeyPilot Setup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css?v=20260415d">
+    <link rel="stylesheet" href="/node_modules/dragula/dist/dragula.css">
+    <link rel="stylesheet" href="/styles/setup-modal.css?v=20260415d">
+    <link rel="stylesheet" href="/styles/setup-block-editor.css?v=20260415d">
+  </head>
+  <body class="setup-page">
+    <div class="setup-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">K</div>
+          <span>KeyPilot</span>
+        </div>
+
+        <button id="connectionPill" type="button" class="connection-pill">
+          <span class="connection-glyph" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 8.5a11 11 0 0 1 14 0"></path>
+              <path d="M8.5 12a6 6 0 0 1 7 0"></path>
+              <path d="M11.5 15.5a1.8 1.8 0 0 1 1 0"></path>
+              <circle cx="12" cy="18.2" r="1.2" fill="currentColor" stroke="none"></circle>
+            </svg>
+          </span>
+          <span id="connectionText">No phone connected</span>
+          <span class="status-dot"></span>
+        </button>
+      </header>
+
+      <aside class="sidebar">
+        <div id="sidebarNav"></div>
+      </aside>
+
+      <main class="setup-main">
+        <section class="content-wrap">
+          <section class="content-panel">
+            <div class="content-head">
+              <div class="content-title">
+                <h1 id="appHeading">Word</h1>
+              </div>
+              <div class="actions">
+                <span id="dirtyBadge" class="badge unsaved hidden">Unsaved</span>
+                <button id="saveButton" type="button" class="btn primary">Save</button>
+              </div>
+            </div>
+
+            <div id="setTabs" class="set-tabs"></div>
+            <div id="slotRow" class="slot-row"></div>
+
+            <section class="library-shell">
+              <div class="library-head">
+                <div class="library-head-top">
+                  <div>
+                    <h3>Shortcut library</h3>
+                    <p>Use presets as-is, drag them into a slot, or open the editor to build a single action or a short sequence.</p>
+                  </div>
+                  <button id="customEntryButton" type="button" class="btn dashed library-create-button">+ Create custom button</button>
+                </div>
+              </div>
+              <div id="libraryFilters" class="library-filters"></div>
+              <div id="suggestionsGrid" class="suggestions-grid"></div>
+            </section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="modalBackdrop" class="modal-backdrop"></div>
+    <section id="pairingModal" class="modal" aria-hidden="true">
+      <h2 id="pairingTitle">Connect your phone</h2>
+      <p id="pairingMessage" class="modal-copy">Scan the QR code from your phone, or open the panel preview on this computer first to see the mobile mockup.</p>
+      <div class="qr-box"><img id="qrImage" alt="Pairing QR code"></div>
+      <div class="pairing-links">
+        <a id="previewLink" class="pairing-link" href="/panel.html" target="_blank" rel="noreferrer">Open desktop phone preview</a>
+        <a id="runtimeLink" class="pairing-link muted" href="/panel.html" target="_blank" rel="noreferrer">localhost:3000/panel.html</a>
+      </div>
+      <ol id="pairingSteps" class="steps">
+        <li>Join the same Wi-Fi network as this computer.</li>
+        <li>Scan the QR code with your phone camera.</li>
+        <li>Open the KeyPilot panel and keep this setup page running.</li>
+      </ol>
+    </section>
+
+    <div id="sheetBackdrop" class="sheet-backdrop"></div>
+    <section id="editorSheet" class="sheet editor-workspace" aria-hidden="true">
+      <header class="sheet-header">
+        <button id="editorCancel" type="button" class="btn">Cancel</button>
+        <div class="sheet-title-block">
+          <h2 id="editorTitle">Create button</h2>
+          <p id="editorStatus" class="sheet-status">2-5 steps works best</p>
+        </div>
+        <div class="sheet-header-actions">
+          <button id="editorRemove" type="button" class="btn hidden">Remove</button>
+          <button id="editorDone" type="button" class="btn">Next</button>
+        </div>
+      </header>
+      <div id="editorBody" class="sheet-body"></div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/node_modules/dragula/dist/dragula.js"></script>
+    <script type="module" src="/setup/main.js?v=20260415g"></script>
+  </body>
+</html>

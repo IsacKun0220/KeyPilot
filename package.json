@@ -1,0 +1,12 @@
+{
+  "name": "keypilot2",
+  "private": true,
+  "scripts": {
+    "setup": "./scripts/bootstrap.sh",
+    "setup:server": "npm install --prefix server",
+    "ui:install": "npm install --prefix panel-ui",
+    "ui:build:css": "npm run --prefix panel-ui build:css",
+    "ui:watch:css": "npm run --prefix panel-ui watch:css",
+    "setup:helper": "cd helper && go build -o shortcut-helper main.go"
+  }
+}

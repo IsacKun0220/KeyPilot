@@ -1,0 +1,7 @@
+{
+  "name": "keypilot-server",
+  "dependencies": {
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "keypilot-panel-ui",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./styles/app.tailwind.css -o ./styles/app.css --minify",
+    "watch:css": "tailwindcss -i ./styles/app.tailwind.css -o ./styles/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "@tailwindcss/oxide-darwin-arm64": "^4.2.2",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.9",
+    "tailwindcss": "^4.2.2"
+  },
+  "dependencies": {
+    "dragula": "^3.7.3",
+    "lucide": "^1.8.0"
+  }
+}
