@@ -1,6 +1,8 @@
 .library-shell {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .library-head-top {
@@ -19,7 +21,7 @@
 .library-head p {
   margin: 8px 0 0;
   color: var(--text-2);
-  max-width: 700px;
+  max-width: 640px;
 }
 
 .library-filters {
@@ -30,8 +32,8 @@
 
 .suggestions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
 }
 
 .suggestion-card,
@@ -47,6 +49,19 @@
   text-align: left;
   display: grid;
   gap: 10px;
+  padding: 14px;
+}
+
+.suggestion-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.suggestion-copy {
+  display: grid;
+  gap: 4px;
 }
 
 .shortcut-icon {
@@ -55,17 +70,20 @@
   display: grid;
   place-items: center;
   color: var(--text-1);
-  margin-bottom: 2px;
 }
 
 .suggestion-card .shortcut-icon .ui-icon {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
 }
 
 .suggestion-card .shortcut-icon .icon-fallback {
-  font-size: 42px;
+  font-size: 36px;
   line-height: 1;
+}
+
+.suggestion-card .shortcut-label {
+  font-size: 14px;
 }
 
 .suggestion-meta {

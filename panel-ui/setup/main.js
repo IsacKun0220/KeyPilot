@@ -1,7 +1,7 @@
-import { loadConfig, loadConnectionStatus, loadPairing, saveConfig } from './services/storage.js';
+import { loadConfig, loadConnectionStatus, loadPairing, loadRuntimeState, saveConfig } from './services/storage.js';
 import { state } from './state.js';
 import { renderSidebar, renderDashboard } from './render/dashboard.js';
-import { getFilteredLibraryPresets, renderLibrary } from './render/library.js';
+import { getFilteredLibraryButtons, renderLibrary } from './render/library.js';
 import { renderEditor } from './render/editor.js?v=20260415g';
 import { renderConnectionStatus, renderPairingModal, showToast } from './render/status.js';
 import { initDashboardHandlers } from './handlers/dashboard.js';
@@ -18,7 +18,6 @@ const els = {
   connectionText: document.getElementById('connectionText'),
   appHeading: document.getElementById('appHeading'),
   dirtyBadge: document.getElementById('dirtyBadge'),
-  saveButton: document.getElementById('saveButton'),
   setTabs: document.getElementById('setTabs'),
   slotRow: document.getElementById('slotRow'),
   suggestionsGrid: document.getElementById('suggestionsGrid'),
@@ -43,9 +42,38 @@ const els = {
   toast: document.getElementById('toast')
 };
 
+let saveTimer = null;
+let saveInFlight = false;
+let saveQueued = false;
+let runtimeStateTimer = null;
+let editorInteractionFrame = 0;
+
+function scheduleEditorInteractionRefresh() {
+  if (editorInteractionFrame) {
+    window.cancelAnimationFrame(editorInteractionFrame);
+  }
+  editorInteractionFrame = window.requestAnimationFrame(() => {
+    editorInteractionFrame = 0;
+    if (state.editor.open) {
+      refreshEditorInteractions(els, renderEditorOnly);
+    }
+  });
+}
+
+function scheduleAutoSave() {
+  clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    persistConfig().catch(() => showToast(els, 'Failed to save configuration.'));
+  }, 120);
+}
+
 function markDirty(value = true) {
   state.dirty = value;
+  state.saveState = value ? 'saving' : 'idle';
   renderConnectionStatus(els);
+  if (value) {
+    scheduleAutoSave();
+  }
 }
 
 function renderSidebarOnly() {
@@ -55,7 +83,11 @@ function renderSidebarOnly() {
 function renderDashboardOnly({ refreshDnd = false } = {}) {
   renderDashboard(els);
   if (refreshDnd) {
-    refreshDndInteractions(els, getFilteredLibraryPresets, { markDirty, renderDashboard: renderDashboardOnly });
+    refreshDndInteractions(els, getFilteredLibraryButtons, {
+      markDirty,
+      renderDashboard: renderDashboardOnly,
+      renderLibrary: renderLibraryOnly
+    });
   }
 }
 
@@ -68,14 +100,36 @@ function renderAll() {
   renderDashboardOnly({ refreshDnd: true });
   renderLibraryOnly();
   renderEditor(els);
-  refreshEditorInteractions(els, renderEditorOnly);
+  if (state.editor.open) {
+    scheduleEditorInteractionRefresh();
+  }
   renderPairingModal(els);
   renderConnectionStatus(els);
 }
 
 function renderEditorOnly() {
   renderEditor(els);
-  refreshEditorInteractions(els, renderEditorOnly);
+  if (state.editor.open) {
+    scheduleEditorInteractionRefresh();
+  }
+}
+
+function applyActiveApp(appId) {
+  if (!state.config?.apps?.[appId]) {
+    return;
+  }
+  if (state.activeApp === appId) {
+    return;
+  }
+  state.activeSetByApp[state.activeApp] = state.activeSetIndex;
+  state.activeApp = appId;
+  const sets = state.config.apps[appId]?.sets || [];
+  const nextIndex = state.activeSetByApp[appId] || 0;
+  state.activeSetIndex = Math.max(0, Math.min(nextIndex, Math.max(sets.length - 1, 0)));
+  renderSidebarOnly();
+  renderDashboardOnly({ refreshDnd: true });
+  renderLibraryOnly();
+  renderEditorOnly();
 }
 
 async function refreshConnectionStatus() {
@@ -114,47 +168,84 @@ async function refreshConnectionStatus() {
   }
 }
 
+async function refreshRuntimeApp() {
+  if (state.editor.open) {
+    return;
+  }
+  if (Date.now() < state.manualAppSelectionUntil) {
+    return;
+  }
+  try {
+    const payload = await loadRuntimeState();
+    if (payload?.activeApp) {
+      applyActiveApp(payload.activeApp);
+    }
+  } catch (_) {}
+}
+
+function startRuntimeStatePolling() {
+  clearInterval(runtimeStateTimer);
+  runtimeStateTimer = setInterval(() => {
+    refreshRuntimeApp().catch(() => {});
+  }, 1000);
+}
+
 async function persistConfig() {
+  if (saveInFlight) {
+    saveQueued = true;
+    return;
+  }
+  saveInFlight = true;
   state.config.activeApp = state.activeApp;
   state.config.activeProfile = state.activeProfile;
-  state.config = await saveConfig(state.config);
-  markDirty(false);
-  channel.postMessage({ type: 'config-updated' });
-  const previous = els.saveButton.textContent;
-  els.saveButton.textContent = 'Saved ✓';
-  setTimeout(() => {
-    els.saveButton.textContent = previous;
-  }, 1200);
-  renderSidebarOnly();
-  renderDashboardOnly({ refreshDnd: true });
-  renderLibraryOnly();
-  renderConnectionStatus(els);
+  try {
+    state.config = await saveConfig(state.config);
+    state.saveState = 'idle';
+    markDirty(false);
+    channel.postMessage({ type: 'config-updated' });
+    renderSidebarOnly();
+    renderDashboardOnly({ refreshDnd: true });
+    renderLibraryOnly();
+    renderConnectionStatus(els);
+  } catch (error) {
+    state.saveState = 'error';
+    renderConnectionStatus(els);
+    throw error;
+  } finally {
+    saveInFlight = false;
+    if (saveQueued) {
+      saveQueued = false;
+      scheduleAutoSave();
+    }
+  }
 }
 
 async function init() {
-  const [config, pairing] = await Promise.all([loadConfig(), loadPairing()]);
+  const [config, pairing, runtimeState] = await Promise.all([loadConfig(), loadPairing(), loadRuntimeState().catch(() => null)]);
   state.config = config;
   state.pairing = pairing;
   state.connectionState.connected = Boolean(pairing.connection?.connected);
   state.connectionState.lastSeenAt = pairing.connection?.lastSeenAt || null;
-  state.activeApp = config.activeApp;
+  state.activeApp = runtimeState?.activeApp || config.activeApp;
+  state.activeSetByApp = Object.fromEntries(Object.keys(config.apps || {}).map((appId) => [appId, 0]));
   els.qrImage.src = pairing.qrDataUrl;
   initDashboardHandlers(els, {
     renderSidebar: renderSidebarOnly,
     renderDashboard: renderDashboardOnly,
+    renderLibrary: renderLibraryOnly,
     renderEditorOnly,
     openEditor,
     markDirty,
     showToast: (message) => showToast(els, message)
   });
-  initLibraryHandlers(els, getFilteredLibraryPresets, {
+  initLibraryHandlers(els, getFilteredLibraryButtons, {
     markDirty,
     renderDashboard: renderDashboardOnly,
     renderLibrary: renderLibraryOnly,
     renderEditorOnly,
     openEditor
   });
-  initEditorHandlers(els, { renderAll, renderEditorOnly });
+  initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly });
   initDndHandlers();
   renderAll();
 
@@ -167,11 +258,9 @@ async function init() {
     els.modalBackdrop.classList.remove('open');
     els.pairingModal.classList.remove('open');
   });
-  els.saveButton.addEventListener('click', () => {
-    persistConfig().catch(() => showToast(els, 'Failed to save configuration.'));
-  });
-
   refreshConnectionStatus().catch(() => {});
+  refreshRuntimeApp().catch(() => {});
+  startRuntimeStatePolling();
   setInterval(() => {
     refreshConnectionStatus().catch(() => {});
   }, 4000);

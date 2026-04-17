@@ -155,9 +155,40 @@
 }
 
 .panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-size: clamp(24px, 4vw, 32px);
   font-weight: 600;
   letter-spacing: -0.05em;
+}
+
+.panel-title-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+}
+
+.panel-title-copy {
+  display: inline-flex;
+  align-items: center;
+}
+
+.panel-title-name {
+  display: block;
+}
+
+.panel-title-mark .app-nav-item__logo {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+}
+
+.panel-title-mark .app-nav-item__logo.is-lettermark {
+  font-size: 20px;
 }
 
 .panel-set-tabs {
@@ -546,4 +577,3 @@
   pointer-events: none;
 }
 .panel-error-toast[hidden] { display: none; }
-

@@ -14,6 +14,36 @@ const WIZARD_STEPS = [
   { title: 'Finish', description: 'Save spot, icon, preview' }
 ];
 
+function ensureEditorShell(els) {
+  if (els._editorView) {
+    return els._editorView;
+  }
+
+  els.editorBody.innerHTML = `
+    <div class="editor-shell">
+      <div class="editor-header-row" data-editor-region="header"></div>
+      <div data-editor-region="step"></div>
+      <div data-editor-region="footer"></div>
+      <div data-editor-region="overlay"></div>
+    </div>
+  `;
+
+  els._editorView = {
+    header: els.editorBody.querySelector('[data-editor-region="header"]'),
+    step: els.editorBody.querySelector('[data-editor-region="step"]'),
+    footer: els.editorBody.querySelector('[data-editor-region="footer"]'),
+    overlay: els.editorBody.querySelector('[data-editor-region="overlay"]'),
+    cache: {
+      header: '',
+      step: '',
+      footer: '',
+      overlay: ''
+    }
+  };
+
+  return els._editorView;
+}
+
 function titleCase(value = '') {
   if (!value) return '';
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -72,7 +102,7 @@ function renderPlatformOption(platformId, isActive) {
   `;
 }
 
-function renderButtonDetailsCard(draft, slotButtons) {
+function renderButtonDetailsCard(draft) {
   return `
     <section class="panel-card">
       <div class="card-heading">
@@ -119,25 +149,61 @@ function renderButtonDetailsCard(draft, slotButtons) {
               ${PLATFORM_IDS.map((platform) => renderPlatformOption(platform, draft.scope.platforms.includes(platform))).join('')}
             </div>
           </section>
-          <section class="scope-panel scope-panel-clean">
-            <div class="field-row">
-              <span class="field-label">Save to</span>
-            </div>
-            <div class="slot-picker compact">
-              ${new Array(5).fill(null).map((_, index) => {
-                const occupant = slotButtons[index];
-                const isActive = state.editor.targetSlot === index;
-                const isTaken = occupant && index !== state.editor.targetSlot;
-                return `
-                  <button type="button" class="slot-pill ${isActive ? 'active' : ''}" data-editor-slot="${index}">
-                    ${isTaken ? escapeHtml(occupant.label) : `Button ${index + 1}`}
-                  </button>
-                `;
-              }).join('')}
-            </div>
-          </section>
         </section>
       </div>
+    </section>
+  `;
+}
+
+function renderSaveToCard(draft, slotButtons) {
+  return `
+    <section class="finish-save-section">
+      <div class="card-heading">
+        <div>
+          <h3>Save to</h3>
+          <p>Pick a slot for this set, or leave everything untouched to keep the button in the library only.</p>
+        </div>
+      </div>
+      <div class="slot-picker compact slot-picker-finish">
+        ${new Array(5).fill(null).map((_, index) => {
+          const occupant = slotButtons[index];
+          const isActive = state.editor.targetSlot === index;
+          const isTaken = occupant && index !== state.editor.targetSlot;
+          const buttonLabel = draft.label?.trim() || 'Button';
+          const pillLabel = isActive
+            ? (isTaken ? `Replace "${occupant.label}"` : buttonLabel)
+            : (isTaken ? occupant.label : '');
+
+          return `
+            <button
+              type="button"
+              class="slot-pill slot-pill-numbered slot-pill-compact ${isActive ? 'active' : ''} ${isTaken ? 'is-taken' : 'is-empty'}"
+              data-editor-slot="${index}"
+            >
+              <span class="slot-pill-badge">${index + 1}</span>
+              <span class="slot-pill-copy">
+                <span class="slot-pill-label">${escapeHtml(pillLabel)}</span>
+              </span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderFinishCard(draft, slotButtons) {
+  return `
+    <section class="panel-card finish-card">
+      <div class="finish-card-top">
+        <div class="finish-card-column finish-card-column-primary">
+          ${renderSuggestedIconCard(draft)}
+        </div>
+        <div class="finish-card-column finish-card-column-preview">
+          ${renderPreviewCard(draft, state.editor)}
+        </div>
+      </div>
+      ${renderSaveToCard(draft, slotButtons)}
     </section>
   `;
 }
@@ -180,7 +246,7 @@ function renderWizardHeader(currentStep) {
       type="button"
       class="step-btn ${index === currentStep ? 'active' : ''} ${index < currentStep ? 'done' : ''}"
       data-editor-step="${index}"
-    ><span class="step-num">${index + 1}</span><span class="step-title">${step.title}</span></button>
+    ><span class="step-title">${step.title}</span></button>
   `);
   const withSeps = steps.reduce((acc, s, i) =>
     i === 0 ? [s] : [...acc, '<span class="step-sep" aria-hidden="true">›</span>', s], []
@@ -236,7 +302,7 @@ export function renderEditor(els) {
       <section class="editor-step-screen editor-step-screen--details active">
         <section class="editor-grid setup-step-grid">
           <div class="editor-primary-column">
-            ${renderButtonDetailsCard(draft, slotButtons)}
+            ${renderButtonDetailsCard(draft)}
           </div>
         </section>
       </section>
@@ -252,22 +318,41 @@ export function renderEditor(els) {
       <section class="editor-step-screen editor-step-screen--finish active">
         <section class="editor-grid appearance-step-grid">
           <div class="editor-primary-column">
-            ${renderSuggestedIconCard(draft)}
+            ${renderFinishCard(draft, slotButtons)}
           </div>
-          <aside class="editor-sidebar">
-            ${renderPreviewCard(draft, state.editor)}
-          </aside>
         </section>
       </section>
     `;
   }
+  const headerMarkup = renderWizardHeader(currentStep);
+  const footerMarkup = renderWizardFooter(currentStep, state.editor.mode);
+  const overlayMarkup = renderIconBrowser(state.editor);
+  const view = ensureEditorShell(els);
 
-  els.editorBody.innerHTML = `
-    <div class="editor-shell">
-      ${renderWizardHeader(currentStep)}
-      ${stepContent}
-      ${renderWizardFooter(currentStep, state.editor.mode)}
-      ${renderIconBrowser(state.editor)}
-    </div>
-  `;
+  if (view.cache.header !== headerMarkup) {
+    view.header.innerHTML = headerMarkup;
+    view.cache.header = headerMarkup;
+  }
+
+  const stepContentChanged = view.cache.step !== stepContent;
+  if (stepContentChanged) {
+    view.step.innerHTML = stepContent;
+    view.cache.step = stepContent;
+  }
+
+  if (view.cache.footer !== footerMarkup) {
+    view.footer.innerHTML = footerMarkup;
+    view.cache.footer = footerMarkup;
+  }
+
+  if (view.cache.overlay !== overlayMarkup) {
+    view.overlay.innerHTML = overlayMarkup;
+    view.cache.overlay = overlayMarkup;
+  }
+
+  els._editorRenderMeta = {
+    open: state.editor.open,
+    currentStep,
+    stepContentChanged
+  };
 }

@@ -7,7 +7,15 @@ export function renderConnectionStatus(els) {
   if (els.connectionText.textContent !== statusLabel) {
     els.connectionText.textContent = statusLabel;
   }
-  els.dirtyBadge.classList.toggle('hidden', !state.dirty);
+  if (els.dirtyBadge) {
+    const badgeLabel = state.saveState === 'error'
+      ? 'Save failed'
+      : state.dirty || state.saveState === 'saving'
+      ? 'Saving...'
+      : '';
+    els.dirtyBadge.textContent = badgeLabel;
+    els.dirtyBadge.classList.toggle('hidden', !badgeLabel);
+  }
   renderPairingModal(els);
 }
 

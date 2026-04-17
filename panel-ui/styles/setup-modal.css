@@ -313,8 +313,8 @@
 }
 
 .editor-step-screen--finish .appearance-step-grid {
-  align-items: center;
-  width: min(100%, 920px);
+  align-items: stretch;
+  width: min(100%, 1180px);
 }
 
 .editor-step-screen--finish .editor-primary-column,
@@ -649,6 +649,49 @@
 .slot-pill.active {
   border-color: rgba(79, 70, 229, 0.22);
   background: rgba(238, 242, 255, 0.92);
+  color: var(--accent-text);
+}
+
+.slot-pill.slot-pill-numbered {
+  min-height: 56px;
+  padding: 6px 16px 6px 8px;
+  gap: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.slot-pill-numbered .slot-pill-badge {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 999px;
+  background: rgba(241, 245, 249, 0.96);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.slot-pill-numbered .slot-pill-copy {
+  display: grid;
+  align-items: center;
+}
+
+.slot-pill-numbered .slot-pill-label {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.slot-pill-numbered.is-empty .slot-pill-label {
+  color: var(--text-3);
+}
+
+.slot-pill.slot-pill-numbered.active .slot-pill-badge {
+  background: rgba(79, 70, 229, 0.10);
   color: var(--accent-text);
 }
 

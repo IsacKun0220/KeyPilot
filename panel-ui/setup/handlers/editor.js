@@ -468,16 +468,50 @@ function requestCloseEditor(renderAll) {
   renderAll();
 }
 
-function saveEditorDraft(renderAll, renderEditorOnly) {
+function currentAppConfig() {
+  return state.config.apps[state.activeApp];
+}
+
+function upsertCustomButton(button) {
+  const app = currentAppConfig();
+  app.customButtons ||= [];
+  const nextButton = deepClone(button);
+  nextButton.meta ||= {};
+  nextButton.meta.source = 'custom';
+  const index = app.customButtons.findIndex((entry) => entry?.id === nextButton.id);
+  if (index === -1) {
+    app.customButtons.unshift(nextButton);
+    return;
+  }
+  app.customButtons[index] = nextButton;
+}
+
+function removePreviousSlotAssignment(buttonId, keepIndex = null) {
+  currentSet().buttons = currentSet().buttons.map((button, index) => {
+    if (index === keepIndex) return button;
+    return button?.id === buttonId ? null : button;
+  });
+}
+
+function saveEditorDraft(markDirty, renderAll, renderEditorOnly) {
   const error = validateButton(state.editor.draft);
   state.editor.validationMessage = error;
   if (error) {
     renderEditorOnly();
     return false;
   }
-  currentSet().buttons[state.editor.targetSlot] = deepClone(state.editor.draft);
+  if (state.editor.draft.meta?.source === 'preset') {
+    state.editor.draft.id = createId('btn');
+  }
+  state.editor.draft.meta ||= {};
+  state.editor.draft.meta.source = 'custom';
+  removePreviousSlotAssignment(state.editor.draft.id, state.editor.targetSlot);
+  if (state.editor.targetSlot !== null) {
+    currentSet().buttons[state.editor.targetSlot] = deepClone(state.editor.draft);
+  }
+  upsertCustomButton(state.editor.draft);
   closeEditor();
-  state.dirty = true;
+  markDirty();
   renderAll();
   return true;
 }
@@ -612,10 +646,16 @@ function swallowRecordingShortcutEvent(event) {
 export function openEditor(prefill, mode = 'create', sourceButton = null) {
   const existing = typeof prefill === 'number' ? currentSet().buttons[prefill] : (prefill || sourceButton);
   state.editor.open = true;
-  state.editor.mode = existing ? (typeof prefill === 'number' ? 'edit' : 'create') : mode;
+  state.editor.mode = typeof prefill === 'number' ? 'edit' : mode;
   state.editor.currentStep = 0;
-  state.editor.targetSlot = typeof prefill === 'number' ? prefill : Math.max(currentSet().buttons.findIndex((entry) => !entry), 0);
+  state.editor.targetSlot = typeof prefill === 'number'
+    ? prefill
+    : null;
   state.editor.draft = normaliseButton(existing || { id: createId('btn') }, state.activeApp);
+  if (typeof prefill !== 'number' && sourceButton?.id) {
+    const assignedIndex = currentSet().buttons.findIndex((entry) => entry?.id === sourceButton.id);
+    state.editor.targetSlot = assignedIndex >= 0 ? assignedIndex : null;
+  }
   if (!existing) {
     state.editor.draft.id ||= createId('btn');
     state.editor.draft.scope.apps = state.editor.draft.scope.apps.length ? state.editor.draft.scope.apps : [state.activeApp];
@@ -656,7 +696,7 @@ export function closeEditor() {
   destroyBlockEditorDrake();
 }
 
-export function initEditorHandlers(els, { renderAll, renderEditorOnly }) {
+export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly }) {
   if (editorBound) {
     return;
   }
@@ -671,7 +711,7 @@ export function initEditorHandlers(els, { renderAll, renderEditorOnly }) {
       advanceEditorStep(renderEditorOnly);
       return;
     }
-    saveEditorDraft(renderAll, renderEditorOnly);
+    saveEditorDraft(markDirty, renderAll, renderEditorOnly);
   });
 
   els.editorRemove.addEventListener('click', () => {
@@ -738,7 +778,8 @@ export function initEditorHandlers(els, { renderAll, renderEditorOnly }) {
 
     const slotButton = event.target.closest('[data-editor-slot]');
     if (slotButton) {
-      state.editor.targetSlot = Number(slotButton.dataset.editorSlot);
+      const nextSlot = Number(slotButton.dataset.editorSlot);
+      state.editor.targetSlot = state.editor.targetSlot === nextSlot ? null : nextSlot;
       rerender(renderEditorOnly);
       return;
     }
@@ -1206,5 +1247,13 @@ export function initEditorHandlers(els, { renderAll, renderEditorOnly }) {
 }
 
 export function refreshEditorInteractions(els, renderEditorOnly) {
+  const meta = els._editorRenderMeta || {};
+  if (!meta.open || meta.currentStep !== 1) {
+    destroyBlockEditorDrake();
+    return;
+  }
+  if (!meta.stepContentChanged && blockEditorDrake) {
+    return;
+  }
   syncBlockEditorDragula(renderEditorOnly, els.editorBody);
 }

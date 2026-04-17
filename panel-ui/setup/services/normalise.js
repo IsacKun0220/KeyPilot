@@ -180,6 +180,12 @@ export function normaliseButtons(buttons = [], appId) {
   return (Array.isArray(buttons) ? buttons : []).slice(0, 5).map((button) => (button ? normaliseButton(button, appId) : null));
 }
 
+export function normaliseLibraryButtons(buttons = [], appId) {
+  return (Array.isArray(buttons) ? buttons : [])
+    .map((button) => normaliseButton(button, appId))
+    .filter(Boolean);
+}
+
 export function createDefaultConfigShape() {
   return {
     activeProfile: 'default',
@@ -190,7 +196,8 @@ export function createDefaultConfigShape() {
         id: appId,
         name: appId,
         group: '',
-        sets: [{ id: 'set-1', name: 'Main', buttons: [] }]
+        sets: [{ id: 'set-1', name: 'Main', buttons: [] }],
+        customButtons: []
       };
       return apps;
     }, {})
@@ -209,6 +216,7 @@ export function normaliseConfig(config = {}) {
       id: appId,
       name: app.name || appId,
       group: app.group || '',
+      customButtons: normaliseLibraryButtons(app.customButtons, appId),
       sets: (Array.isArray(app.sets) && app.sets.length ? app.sets : [{ id: 'set-1', name: 'Main', buttons: [] }])
         .slice(0, 5)
         .map((set, index) => ({

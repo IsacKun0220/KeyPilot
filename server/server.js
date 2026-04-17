@@ -13,8 +13,21 @@ const UI_DIR = path.join(__dirname, '..', 'panel-ui');
 
 let runtimeState = {
   activeApp: 'word',
-  autoSwitchEnabled: true
+  autoSwitchEnabled: true,
+  configVersion: 0
 };
+
+let lastAppCheck = { ts: 0, app: null, browser: '', url: '' };
+const APP_CHECK_CACHE_MS = 600;
+
+async function detectForegroundApp() {
+  if (Date.now() - lastAppCheck.ts < APP_CHECK_CACHE_MS) return lastAppCheck;
+  let result = { app: null, browser: '', url: '' };
+  if (os.platform() === 'darwin') result = await detectActiveAppMac();
+  if (os.platform() === 'win32') result = await detectActiveAppWindows();
+  lastAppCheck = { ts: Date.now(), ...result };
+  return lastAppCheck;
+}
 
 let panelPresence = {
   lastSeenAt: 0,
@@ -44,45 +57,126 @@ async function saveConfig(config) {
   const normalised = ensureConfigShape(config);
   runtimeState.activeApp = normalised.activeApp;
   runtimeState.autoSwitchEnabled = normalised.autoSwitchEnabled;
+  runtimeState.configVersion += 1;
   await fsp.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
   await fsp.writeFile(CONFIG_PATH, JSON.stringify(normalised, null, 2));
   return normalised;
 }
 
-function mapForegroundApp(name) {
+function mapForegroundApp(name, title, url) {
   if (!name) return null;
+  const t = String(title || '').toLowerCase();
+  const u = String(url || '').toLowerCase();
+
+  // Desktop apps matched by process name
   if (name.includes('word')) return 'word';
   if (name.includes('excel')) return 'excel';
   if (name.includes('powerpoint') || name.includes('powerpnt')) return 'powerpoint';
-  if (name.includes('docs')) return 'docs';
-  if (name.includes('sheets')) return 'sheets';
-  if (name.includes('slides')) return 'slides';
-  if (name.includes('google chrome') || name.includes('chrome')) return runtimeState.activeApp;
+
+  const isBrowser = /chrome|edge|msedge|firefox|safari|arc|opera|brave/.test(name);
+  if (isBrowser) {
+    // URL-based detection is locale-independent and reliable for tab switches.
+    // Chrome and Safari supply the URL via their AppleScript dictionary; other
+    // browsers fall through to title matching.
+    if (u) {
+      if (u.includes('docs.google.com/document')) return 'docs';
+      if (u.includes('docs.google.com/spreadsheets') || u.includes('sheets.google.com')) return 'sheets';
+      if (u.includes('docs.google.com/presentation') || u.includes('slides.google.com')) return 'slides';
+      if (/word\.office\.com|officeapps\.live\.com\/we\/wordeditor|word\.new/.test(u)) return 'word';
+      if (/excel\.office\.com|officeapps\.live\.com\/x\/|excel\.new/.test(u)) return 'excel';
+      if (/powerpoint\.office\.com|officeapps\.live\.com\/p\/|powerpoint\.new/.test(u)) return 'powerpoint';
+    }
+    // Title-based fallback for browsers without AppleScript URL access
+    if (!t) return null;
+    if (/google docs|docs\.google\.com/.test(t)) return 'docs';
+    if (/google sheets|sheets\.google\.com/.test(t)) return 'sheets';
+    if (/google slides|slides\.google\.com/.test(t)) return 'slides';
+    if (/microsoft word|\bword online\b|\bword\b/.test(t)) return 'word';
+    if (/microsoft excel|\bexcel online\b|\bexcel\b/.test(t)) return 'excel';
+    if (/microsoft powerpoint|\bpowerpoint online\b|\bpowerpoint\b/.test(t)) return 'powerpoint';
+    return null;
+  }
+
   return null;
+}
+
+// Map a lowercased process name to the exact AppleScript application name
+// used for targeted window activation.
+function resolveAppleScriptBrowserName(procName) {
+  if (/google chrome/.test(procName) || procName === 'chrome') return 'Google Chrome';
+  if (procName === 'safari') return 'Safari';
+  if (/microsoft edge/.test(procName) || /msedge/.test(procName)) return 'Microsoft Edge';
+  if (procName === 'arc') return 'Arc';
+  if (/brave/.test(procName)) return 'Brave Browser';
+  if (/firefox/.test(procName)) return 'Firefox';
+  return '';
 }
 
 function detectActiveAppMac() {
   return new Promise((resolve) => {
+    // For Chrome and Safari we read the active tab URL directly from the browser's
+    // AppleScript dictionary — this is instant, locale-independent, and survives
+    // same-window tab switches without waiting for the window title to repaint.
     const script = `
       tell application "System Events"
-        set frontApp to name of first application process whose frontmost is true
+        set frontProc to first application process whose frontmost is true
+        set frontApp to name of frontProc
       end tell
-      return frontApp
+      set frontTitle to ""
+      set frontURL to ""
+      try
+        if frontApp is "Google Chrome" then
+          tell application "Google Chrome"
+            set frontTitle to title of active tab of front window
+            set frontURL to URL of active tab of front window
+          end tell
+        else if frontApp is "Safari" then
+          tell application "Safari"
+            set frontTitle to name of current tab of front window
+            set frontURL to URL of current tab of front window
+          end tell
+        else
+          tell application "System Events"
+            set frontTitle to name of front window of (first application process whose frontmost is true)
+          end tell
+        end if
+      end try
+      return frontApp & "|" & frontTitle & "|" & frontURL
     `;
-    require('child_process').execFile('osascript', ['-e', script], { timeout: 3000 }, (error, stdout) => {
-      resolve(error ? null : mapForegroundApp(String(stdout || '').trim().toLowerCase()));
+    require('child_process').execFile('osascript', ['-e', script], { timeout: 1200 }, (error, stdout) => {
+      if (error) { resolve({ app: null, browser: '', url: '' }); return; }
+      const parts = String(stdout || '').trim().split('|');
+      const procName = parts[0].toLowerCase();
+      const url = parts[2] || '';
+      const app = mapForegroundApp(procName, parts[1] || '', url);
+      const browser = resolveAppleScriptBrowserName(procName);
+      resolve({ app, browser, url });
     });
   });
 }
 
 function detectActiveAppWindows() {
   return new Promise((resolve) => {
-    const script = [
-      '$p = Get-Process | Where-Object {$_.MainWindowTitle -and $_.MainWindowHandle -ne 0} | Sort-Object StartTime -Descending | Select-Object -First 1',
-      'if ($p) { $p.ProcessName }'
-    ].join('; ');
+    // Use GetForegroundWindow so we always get the actual focused window, not the
+    // most-recently-started process (which was the old broken heuristic).
+    const script = `
+Add-Type -TypeDefinition @"
+using System;using System.Runtime.InteropServices;using System.Text;
+public class KP{
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h,StringBuilder s,int n);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h,out uint p);
+}
+"@ -ErrorAction SilentlyContinue
+$h=[KP]::GetForegroundWindow();$sb=New-Object System.Text.StringBuilder 512
+[KP]::GetWindowText($h,$sb,512)|Out-Null;$pid=0
+[KP]::GetWindowThreadProcessId($h,[ref]$pid)|Out-Null
+$p=Get-Process -Id $pid -ErrorAction SilentlyContinue
+if($p){$p.ProcessName+"|"+$sb.ToString()}`.trim();
     require('child_process').execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], { timeout: 4000 }, (error, stdout) => {
-      resolve(error ? null : mapForegroundApp(String(stdout || '').trim().toLowerCase()));
+      if (error) { resolve(null); return; }
+      const parts = String(stdout || '').trim().split('|');
+      resolve({ app: mapForegroundApp(parts[0].toLowerCase(), parts[1] || '', ''), browser: '', url: '' });
     });
   });
 }
@@ -141,7 +235,21 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/config', async (req, res) => {
-  res.json({ config: await loadConfig() });
+  res.json({ config: await loadConfig(), configVersion: runtimeState.configVersion });
+});
+
+app.get('/api/state', async (req, res) => {
+  if (runtimeState.autoSwitchEnabled) {
+    const detected = await detectForegroundApp();
+    if (detected.app && APP_IDS.includes(detected.app)) {
+      runtimeState.activeApp = detected.app;
+    }
+  }
+  res.json({
+    activeApp: runtimeState.activeApp,
+    configVersion: runtimeState.configVersion,
+    autoSwitchEnabled: runtimeState.autoSwitchEnabled
+  });
 });
 
 app.put('/api/config', async (req, res) => {
@@ -202,10 +310,10 @@ app.post('/api/panel-presence/disconnect', (req, res) => {
 });
 
 app.get('/active-app', async (req, res) => {
-  let activeApp = null;
-  if (os.platform() === 'darwin') activeApp = await detectActiveAppMac();
-  if (os.platform() === 'win32') activeApp = await detectActiveAppWindows();
-  res.json({ activeApp: APP_IDS.includes(activeApp) ? activeApp : null });
+  let result = { app: null };
+  if (os.platform() === 'darwin') result = await detectActiveAppMac();
+  if (os.platform() === 'win32') result = await detectActiveAppWindows();
+  res.json({ activeApp: APP_IDS.includes(result.app) ? result.app : null });
 });
 
 app.get('/api/platform', (req, res) => {
@@ -250,7 +358,11 @@ app.post('/trigger', async (req, res) => {
       buttonId,
       app: appId,
       platform,
-      steps
+      steps,
+      // Pass the last-detected tab URL and browser so execution can focus the
+      // exact window/tab rather than just activating the browser application.
+      activeUrl: lastAppCheck.url || '',
+      activeBrowser: lastAppCheck.browser || ''
     });
 
     res.json({ ok: true, output });

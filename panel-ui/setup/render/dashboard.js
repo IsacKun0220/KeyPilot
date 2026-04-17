@@ -1,7 +1,7 @@
 import { APP_GROUPS, APP_LABELS, SET_LIMIT, SLOT_LIMIT } from '../constants.js';
 import { APP_ICON_FALLBACKS, APP_LOGOS, APP_NAV_LABELS } from '../../shared/app-meta.js';
 import { state } from '../state.js';
-import { escapeHtml, renderKeyChips, createButtonMarkup } from '../utils/dom.js';
+import { escapeHtml, createButtonMarkup } from '../utils/dom.js';
 import { getResolvedSteps } from '../services/mapping.js';
 
 function currentApp() {
@@ -12,17 +12,35 @@ function currentSet() {
   return currentApp().sets[state.activeSetIndex];
 }
 
-function stepsPreview(button) {
+function renderAppTitle(appId) {
+  return `
+    <span class="app-title-row">
+      <span class="app-title-mark">
+        ${APP_ICON_FALLBACKS[appId]
+          ? `<span class="app-nav-item__logo app-nav-item__logo--${appId} is-lettermark" aria-hidden="true">${escapeHtml(APP_ICON_FALLBACKS[appId])}</span>`
+          : `<span class="app-nav-item__logo app-nav-item__logo--${appId}" aria-hidden="true">
+              <img src="${escapeHtml(APP_LOGOS[appId] || '')}" alt="" loading="lazy" onerror="this.parentElement.classList.add('is-fallback'); this.remove();">
+            </span>`}
+      </span>
+      <span class="app-title-name">${escapeHtml(APP_NAV_LABELS[appId] || APP_LABELS[appId] || appId)}</span>
+    </span>
+  `;
+}
+
+function describeButton(button) {
   const steps = getResolvedSteps(button, state.activeApp, state.os);
-  const first = steps[0];
-  if (!first) {
-    return '<span class="empty-hint">No steps</span>';
+  if (!steps.length) return 'No action set';
+  if (button.actionType === 'sequence') {
+    if (steps.some((step) => step.type === 'text' && step.value)) return 'Types text as part of a short sequence';
+    if (steps.some((step) => step.type === 'repeatKeyPress')) return 'Runs a short repeated action';
+    return 'Runs a short multi-step action';
   }
-  if (first.type === 'keyCombo') return renderKeyChips(first.keys, state.os);
-  if (first.type === 'keyPress') return renderKeyChips([first.key], state.os);
-  if (first.type === 'text') return `<span class="step-preview-text">${escapeHtml(first.value || 'Text')}</span>`;
-  if (first.type === 'delay') return `<span class="step-preview-text">${first.durationMs} ms</span>`;
-  return `<span class="step-preview-text">${escapeHtml(first.key)} × ${first.count}</span>`;
+  const first = steps[0];
+  if (first.type === 'text' && first.value) return 'Types text';
+  if (first.type === 'repeatKeyPress') return 'Repeats a key action';
+  if (first.type === 'delay') return 'Pause action';
+  if (first.type === 'keyPress') return 'Single key action';
+  return 'Single shortcut';
 }
 
 export function renderSidebar(els) {
@@ -46,11 +64,20 @@ export function renderSidebar(els) {
 export function renderDashboard(els) {
   const app = currentApp();
   const set = currentSet();
-  els.appHeading.textContent = APP_LABELS[state.activeApp];
+  els.appHeading.innerHTML = renderAppTitle(state.activeApp);
 
   els.setTabs.innerHTML = app.sets.map((entry, index) => `
-    <div class="set-tab ${index === state.activeSetIndex ? 'active' : ''}">
-      <button type="button" class="tab-main" data-set-index="${index}"><span class="tab-name">${escapeHtml(entry.name)}</span></button>
+    <div class="set-tab ${index === state.activeSetIndex ? 'active' : ''} ${state.editingSetIndex === index ? 'editing' : ''}">
+      ${state.editingSetIndex === index
+        ? `<input
+            type="text"
+            class="set-tab-input"
+            data-set-name-input="${index}"
+            value="${escapeHtml(state.editingSetDraft)}"
+            placeholder=""
+            aria-label="Set name"
+          >`
+        : `<button type="button" class="tab-main" data-set-index="${index}"><span class="tab-name">${escapeHtml(entry.name || '')}</span></button>`}
       ${app.sets.length > 1 ? `<button type="button" class="tab-close" data-delete-set="${index}">✕</button>` : ''}
     </div>
   `).join('') + `<button type="button" class="btn dashed" id="newSetButton" ${app.sets.length >= SET_LIMIT ? 'disabled' : ''}>+ New set</button>`;
@@ -75,9 +102,11 @@ export function renderDashboard(els) {
           <span class="slot-position">${index + 1}</span>
           <span class="remove-slot" data-remove-slot="${index}">✕</span>
           <span class="slot-icon">${createButtonMarkup(button)}</span>
-          <span class="slot-label">${escapeHtml(button.label)}</span>
-          <span class="slot-meta">${button.actionType === 'sequence' ? 'Sequence' : 'Shortcut'}</span>
-          <div class="key-chips">${stepsPreview(button)}</div>
+          <span class="slot-copy">
+            <span class="slot-label">${escapeHtml(button.label)}</span>
+            <span class="slot-meta">${button.actionType === 'sequence' ? 'Sequence' : 'Shortcut'}</span>
+            <span class="slot-description">${escapeHtml(describeButton(button))}</span>
+          </span>
         </button>
       </div>
     `;

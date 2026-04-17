@@ -152,6 +152,7 @@ function createDefaultConfig() {
       id: meta.id,
       name: meta.name,
       group: meta.group,
+      customButtons: [],
       sets: [{ id: 'set-1', name: 'Main', buttons: [] }]
     };
   });
@@ -175,6 +176,7 @@ function ensureConfigShape(input) {
       id: meta.id,
       name: meta.name,
       group: meta.group,
+      customButtons: (Array.isArray(sourceApp.customButtons) ? sourceApp.customButtons : []).map((button) => normaliseButton(button, appId)),
       sets: sourceSets.slice(0, 5).map((set, index) => ({
         id: typeof set?.id === 'string' && set.id ? set.id : `set-${index + 1}`,
         name: typeof set?.name === 'string' && set.name.trim() ? set.name.trim() : `Set ${index + 1}`,

@@ -150,6 +150,10 @@
   box-shadow: 0 1px 3px rgba(79, 70, 229, 0.10);
 }
 
+.set-tab.editing {
+  padding-right: 8px;
+}
+
 .tab-main {
   display: inline-flex;
   align-items: center;
@@ -158,14 +162,23 @@
   color: inherit;
 }
 
-.set-tab input {
-  width: 80px;
+.set-tab input,
+.set-tab-input {
+  min-width: 72px;
+  width: 72px;
+  height: 100%;
+  padding: 0 8px 0 14px;
   border: 0;
   background: transparent;
   outline: 0;
   color: inherit;
   font-size: 13.5px;
   font-weight: 600;
+}
+
+.set-tab-input::placeholder {
+  color: inherit;
+  opacity: 0;
 }
 
 .tab-close {

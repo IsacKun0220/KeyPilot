@@ -29,3 +29,7 @@ export async function loadPairing() {
 export async function loadConnectionStatus() {
   return getJson('/api/panel-presence');
 }
+
+export async function loadRuntimeState() {
+  return getJson('/api/state');
+}

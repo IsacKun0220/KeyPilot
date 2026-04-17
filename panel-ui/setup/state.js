@@ -8,7 +8,12 @@ export const state = {
   activeProfile: 'default',
   activeApp: APP_IDS[0],
   activeSetIndex: 0,
+  activeSetByApp: {},
+  editingSetIndex: null,
+  editingSetDraft: '',
+  manualAppSelectionUntil: 0,
   dirty: false,
+  saveState: 'idle',
   libraryFilters: {
     query: '',
     category: 'all',

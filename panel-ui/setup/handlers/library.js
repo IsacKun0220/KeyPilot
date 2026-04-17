@@ -52,20 +52,40 @@ export function initLibraryHandlers(els, getPresets, { markDirty, renderDashboar
   });
 
   els.suggestionsGrid.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-preset-index]');
+    const button = event.target.closest('[data-library-index]');
     if (!button) return;
 
-    const presets = getPresets();
-    const preset = deepClone(presets[Number(button.dataset.presetIndex)]);
+    const libraryButtons = getPresets();
+    const libraryButton = deepClone(libraryButtons[Number(button.dataset.libraryIndex)]);
     const set = state.config.apps[state.activeApp].sets[state.activeSetIndex];
-    const index = set.buttons.findIndex((entry) => !entry);
-    if (index === -1) {
-      openEditor(undefined, 'create', preset);
+    const source = button.dataset.librarySource;
+
+    if (!libraryButton) {
+      return;
+    }
+
+    if (source === 'custom') {
+      openEditor(undefined, 'edit', libraryButton);
       renderEditorOnly();
       return;
     }
-    set.buttons[index] = preset;
+
+    // Search all 5 positions — not just the existing array — because fresh apps
+    // start with buttons:[] (length 0) so findIndex on the array always returns -1
+    // even when every slot is visually empty.
+    let index = -1;
+    for (let i = 0; i < 5; i++) {
+      if (!set.buttons[i]) { index = i; break; }
+    }
+
+    if (index === -1) {
+      openEditor(undefined, 'create', libraryButton);
+      renderEditorOnly();
+      return;
+    }
+    set.buttons[index] = libraryButton;
     markDirty();
     renderDashboard({ refreshDnd: true });
+    renderLibrary();
   });
 }

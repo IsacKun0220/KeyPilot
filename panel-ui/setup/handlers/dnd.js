@@ -16,17 +16,20 @@ function destroySlotDrake() {
   }
 }
 
-function getTargetSlotIndex(container, slotCount) {
+const SLOT_LIMIT = 5;
+
+function getTargetSlotIndex(container) {
+  // Always validate against the fixed SLOT_LIMIT, not the current buttons array
+  // length — for fresh/empty apps the array is [], so slotCount would be 0 and
+  // every valid slot index (0-4) would fail the old < slotCount guard.
   const index = Number(container?.dataset.slotIndex);
-  if (Number.isInteger(index) && index >= 0 && index < slotCount) {
-    return index;
-  }
-  return slotCount - 1;
+  return Number.isInteger(index) && index >= 0 && index < SLOT_LIMIT ? index : 0;
 }
 
-function rerenderAfterDrop(renderDashboard) {
+function rerenderAfterDrop(renderDashboard, renderLibrary) {
   window.setTimeout(() => {
     renderDashboard({ refreshDnd: true });
+    renderLibrary();
   }, 0);
 }
 
@@ -37,7 +40,7 @@ export function initDndHandlers() {
   dndBound = true;
 }
 
-export function refreshDndInteractions(els, getPresets, { markDirty, renderDashboard }) {
+export function refreshDndInteractions(els, getLibraryButtons, { markDirty, renderDashboard, renderLibrary }) {
   destroySlotDrake();
 
   if (!els.suggestionsGrid || !els.slotRow) {
@@ -51,7 +54,7 @@ export function refreshDndInteractions(els, getPresets, { markDirty, renderDashb
 
   slotDrake = dragula([els.suggestionsGrid, ...slotContainers], {
     copy: (_el, source) => source === els.suggestionsGrid,
-    accepts: (_el, target) => slotContainers.includes(target),
+    accepts: (_el, target) => target === els.suggestionsGrid || slotContainers.includes(target),
     revertOnSpill: true,
     moves: (el, source) => {
       if (source === els.suggestionsGrid) {
@@ -73,50 +76,61 @@ export function refreshDndInteractions(els, getPresets, { markDirty, renderDashb
     }
   });
 
-  slotDrake.on('drop', (el, target, source, sibling) => {
+  slotDrake.on('drop', (el, target, source) => {
     slotContainers.forEach((container) => container.classList.remove('drag-over'));
-    if (!slotContainers.includes(target)) {
-      rerenderAfterDrop(renderDashboard);
+    if (!target) {
+      rerenderAfterDrop(renderDashboard, renderLibrary);
       return;
     }
 
     const buttons = currentButtons();
-    const slotCount = buttons.length;
-    const targetIndex = getTargetSlotIndex(target, slotCount);
+
+    if (target === els.suggestionsGrid) {
+      if (slotContainers.includes(source)) {
+        const fromIndex = getTargetSlotIndex(source);
+        buttons[fromIndex] = null;
+        markDirty();
+      }
+      rerenderAfterDrop(renderDashboard, renderLibrary);
+      return;
+    }
+
+    if (!slotContainers.includes(target)) {
+      rerenderAfterDrop(renderDashboard, renderLibrary);
+      return;
+    }
+
+    const targetIndex = getTargetSlotIndex(target);
 
     if (source === els.suggestionsGrid) {
-      const presets = getPresets();
-      const preset = presets[Number(el.dataset.presetIndex)];
+      const libraryButtons = getLibraryButtons();
+      const libraryButton = libraryButtons[Number(el.dataset.libraryIndex)];
 
       if (el.parentNode === target) {
         el.parentNode.removeChild(el);
       }
-      buttons[targetIndex] = preset ? deepClone(preset) : buttons[targetIndex];
-      markDirty();
-      rerenderAfterDrop(renderDashboard);
+      if (libraryButton) {
+        buttons[targetIndex] = deepClone(libraryButton);
+        markDirty();
+      }
+      rerenderAfterDrop(renderDashboard, renderLibrary);
       return;
     }
 
     if (slotContainers.includes(source)) {
-      const fromIndex = getTargetSlotIndex(source, slotCount);
-
-      if (!Number.isInteger(fromIndex) || fromIndex < 0 || fromIndex >= buttons.length) {
-        rerenderAfterDrop(renderDashboard);
-        return;
-      }
-
+      const fromIndex = getTargetSlotIndex(source);
       if (targetIndex !== fromIndex) {
         const displaced = buttons[targetIndex] || null;
-        buttons[targetIndex] = buttons[fromIndex];
+        buttons[targetIndex] = buttons[fromIndex] || null;
         buttons[fromIndex] = displaced;
+        markDirty();
       }
-      markDirty();
-      rerenderAfterDrop(renderDashboard);
+      rerenderAfterDrop(renderDashboard, renderLibrary);
     }
   });
 
   slotDrake.on('cancel', () => {
     slotContainers.forEach((container) => container.classList.remove('drag-over'));
-    rerenderAfterDrop(renderDashboard);
+    rerenderAfterDrop(renderDashboard, renderLibrary);
   });
 }
