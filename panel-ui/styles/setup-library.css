@@ -1,39 +1,71 @@
 .library-shell {
   display: grid;
-  gap: 14px;
-  padding-top: 4px;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  gap: 12px;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.library-sticky-section {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  display: grid;
+  gap: 8px;
+  background: var(--bg);
+  padding: 2px 0 8px;
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.1);
 }
 
 .library-head-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .library-head h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 21px;
   letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 .library-head p {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: var(--text-2);
-  max-width: 640px;
+  max-width: 420px;
+  font-size: 12.5px;
+  line-height: 1.35;
 }
 
 .library-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 320px) 220px;
+  align-items: center;
+  gap: 10px;
+}
+
+.library-search-input {
+  width: min(100%, 320px);
+}
+
+.library-create-button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 
 .suggestions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, 180px);
   gap: 12px;
+  min-height: 0;
+  align-content: start;
+  justify-content: start;
+  overflow-y: auto;
+  padding: 0 2px 24px;
+  scrollbar-gutter: stable;
 }
 
 .suggestion-card,
@@ -46,22 +78,35 @@
 }
 
 .suggestion-card {
-  text-align: left;
-  display: grid;
-  gap: 10px;
-  padding: 14px;
+  user-select: none;
+  cursor: grab;
 }
 
-.suggestion-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.suggestion-card.setup-button-card {
+  padding: 0 12px;
+  background: var(--surface);
 }
 
-.suggestion-copy {
-  display: grid;
-  gap: 4px;
+.suggestion-card-body {
+  width: 100%;
+  height: 100%;
+}
+
+.library-delete-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-height: 24px;
+  width: 24px;
+  padding: 0;
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  border-radius: 999px;
+  background: var(--red-bg);
+  color: var(--red-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  z-index: 1;
 }
 
 .shortcut-icon {
@@ -82,21 +127,34 @@
   line-height: 1;
 }
 
-.suggestion-card .shortcut-label {
-  font-size: 14px;
+.suggestion-card.is-single-button .shortcut-icon .ui-icon {
+  width: 48px;
+  height: 48px;
 }
 
-.suggestion-meta {
-  font-size: 12px;
-  color: var(--accent-text);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.suggestion-card.is-single-button .shortcut-icon .icon-fallback {
+  font-size: 50px;
 }
 
-.suggestion-preview {
-  font-size: 13px;
-  color: var(--text-2);
-  line-height: 1.4;
+.suggestion-card.is-single-button .key-chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 13px;
+  font-size: 16px;
+}
+
+.suggestion-card:has(.library-delete-button) .suggestion-card-body {
+  padding-right: 0;
+}
+
+.suggestions-grid.drop-remove {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 6px;
+  border-radius: var(--r-lg);
+}
+
+body.library-dragging .suggestion-card {
+  cursor: grabbing;
 }
 
 @media (max-width: 720px) {
@@ -104,5 +162,13 @@
   .library-filters {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .suggestions-grid {
+    grid-template-columns: repeat(auto-fill, 164px);
+  }
+
+  .library-search-input {
+    width: 100%;
   }
 }

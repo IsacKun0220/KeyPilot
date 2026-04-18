@@ -1,7 +1,35 @@
 import { deepClone } from '../utils/clone.js';
 import { state } from '../state.js';
+import { deleteButtonDefinition } from './editor-save.js';
 
 let libraryBound = false;
+
+function addLibraryButtonToNextSlot(libraryButton, { markDirty, renderDashboard, renderLibrary, renderEditorOnly, openEditor }) {
+  const set = state.config.apps[state.activeApp].sets[state.activeSetIndex];
+
+  if (!libraryButton) {
+    return;
+  }
+
+  let index = -1;
+  for (let i = 0; i < 5; i++) {
+    if (!set.buttons[i]) {
+      index = i;
+      break;
+    }
+  }
+
+  if (index === -1) {
+    openEditor(undefined, 'create', libraryButton);
+    renderEditorOnly();
+    return;
+  }
+
+  set.buttons[index] = libraryButton;
+  markDirty();
+  renderDashboard({ refreshDnd: true });
+  renderLibrary();
+}
 
 export function initLibraryHandlers(els, getPresets, { markDirty, renderDashboard, renderLibrary, renderEditorOnly, openEditor }) {
   if (libraryBound) {
@@ -52,15 +80,29 @@ export function initLibraryHandlers(els, getPresets, { markDirty, renderDashboar
   });
 
   els.suggestionsGrid.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-library-index]');
-    if (!button) return;
+    const deleteButton = event.target.closest('[data-delete-library-button]');
+    const card = event.target.closest('[data-library-card]');
+    if (!card) return;
 
     const libraryButtons = getPresets();
-    const libraryButton = deepClone(libraryButtons[Number(button.dataset.libraryIndex)]);
-    const set = state.config.apps[state.activeApp].sets[state.activeSetIndex];
-    const source = button.dataset.librarySource;
+    const libraryButton = deepClone(libraryButtons[Number(card.dataset.libraryIndex)]);
+    const source = card.dataset.librarySource;
 
     if (!libraryButton) {
+      return;
+    }
+
+    if (deleteButton) {
+      event.stopPropagation();
+      if (source !== 'custom') {
+        return;
+      }
+      const changed = deleteButtonDefinition(card.dataset.libraryButtonId);
+      if (changed) {
+        markDirty();
+      }
+      renderDashboard({ refreshDnd: true });
+      renderLibrary();
       return;
     }
 
@@ -70,22 +112,12 @@ export function initLibraryHandlers(els, getPresets, { markDirty, renderDashboar
       return;
     }
 
-    // Search all 5 positions — not just the existing array — because fresh apps
-    // start with buttons:[] (length 0) so findIndex on the array always returns -1
-    // even when every slot is visually empty.
-    let index = -1;
-    for (let i = 0; i < 5; i++) {
-      if (!set.buttons[i]) { index = i; break; }
-    }
-
-    if (index === -1) {
-      openEditor(undefined, 'create', libraryButton);
-      renderEditorOnly();
-      return;
-    }
-    set.buttons[index] = libraryButton;
-    markDirty();
-    renderDashboard({ refreshDnd: true });
-    renderLibrary();
+    addLibraryButtonToNextSlot(libraryButton, {
+      markDirty,
+      renderDashboard,
+      renderLibrary,
+      renderEditorOnly,
+      openEditor
+    });
   });
 }

@@ -1,12 +1,5 @@
+import { getJson, sendJson } from '../../shared/http.js';
 import { normaliseConfig } from './normalise.js';
-
-export async function getJson(url, options) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
-  }
-  return response.json();
-}
 
 export async function loadConfig() {
   const { config } = await getJson('/api/config');
@@ -14,10 +7,9 @@ export async function loadConfig() {
 }
 
 export async function saveConfig(config) {
-  const payload = await getJson('/api/config', {
+  const payload = await sendJson('/api/config', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ config })
+    body: { config }
   });
   return normaliseConfig(payload.config);
 }

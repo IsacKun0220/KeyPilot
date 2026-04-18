@@ -358,6 +358,20 @@
   flex-wrap: wrap;
 }
 
+.shortcut-card.is-single-button .shortcut-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.shortcut-card.is-single-button .shortcut-icon .ui-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.shortcut-card.is-single-button .shortcut-icon .icon-fallback {
+  font-size: 50px;
+}
+
 .panel-step-preview {
   font-size: 13px;
   color: var(--text-2);

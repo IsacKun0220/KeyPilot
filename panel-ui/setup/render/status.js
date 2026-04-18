@@ -8,7 +8,9 @@ export function renderConnectionStatus(els) {
     els.connectionText.textContent = statusLabel;
   }
   if (els.dirtyBadge) {
-    const badgeLabel = state.saveState === 'error'
+    const badgeLabel = !state.showSaveBadge
+      ? ''
+      : state.saveState === 'error'
       ? 'Save failed'
       : state.dirty || state.saveState === 'saving'
       ? 'Saving...'
@@ -16,7 +18,15 @@ export function renderConnectionStatus(els) {
     els.dirtyBadge.textContent = badgeLabel;
     els.dirtyBadge.classList.toggle('hidden', !badgeLabel);
   }
-  renderPairingModal(els);
+  const pairingSignature = JSON.stringify({
+    connected,
+    runtimeUrl: state.pairing?.runtimeUrl || '/panel.html',
+    previewUrl: state.pairing?.previewUrl || '/panel.html'
+  });
+  if (els._pairingSignature !== pairingSignature) {
+    renderPairingModal(els);
+    els._pairingSignature = pairingSignature;
+  }
 }
 
 export function renderPairingModal(els) {

@@ -15,7 +15,7 @@ export function createStep(type = 'keyCombo') {
     case 'text':
       return { type: 'text', value: '' };
     case 'delay':
-      return { type: 'delay', durationMs: 150 };
+      return { type: 'delay', durationMs: 250 };
     case 'repeatKeyPress':
       return { type: 'repeatKeyPress', key: 'ArrowDown', count: 2 };
     case 'keyCombo':

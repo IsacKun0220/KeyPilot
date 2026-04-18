@@ -18,13 +18,54 @@
   position: relative;
   flex: 0 0 180px;
   width: 180px;
-  min-height: 166px;
+  min-height: 156px;
   overflow: hidden;
 }
 
+.slot-shell.is-drag-source > .slot-card,
+.slot-shell.is-drag-source > .gu-transit {
+  opacity: 0;
+}
+
+.slot-shell.is-drag-source::before {
+  content: attr(data-slot-label);
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 2;
+}
+
+.slot-shell.is-drag-source::after {
+  content: 'Drop or edit';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(148, 163, 184, 0.42);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(241, 245, 249, 0.72) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.45;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .slot-shell.drag-over .slot-card {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(239, 246, 255, 0.96) 100%);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
 }
 
 .slot-shell > .gu-transit,
@@ -32,35 +73,74 @@
   position: absolute;
   inset: 0;
   width: 100%;
-  min-height: 166px;
+  min-height: 156px;
   margin: 0;
   z-index: 2;
   pointer-events: none;
   overflow: hidden;
 }
 
-.slot-card {
+.gu-mirror.slot-drag-mirror {
+  opacity: 0.7;
+  transform: scale(0.98);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+  border: 1px dashed rgba(148, 163, 184, 0.42);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%);
+}
+
+body.slot-drag-active .gu-mirror.slot-drag-mirror .slot-position,
+body.slot-drag-active .gu-mirror.slot-drag-mirror .remove-slot,
+body.slot-drag-active .gu-mirror.slot-drag-mirror .shortcut-label,
+body.slot-drag-active .gu-mirror.slot-drag-mirror .key-chips {
+  display: none !important;
+}
+
+body.slot-drag-active .gu-mirror.slot-drag-mirror .setup-button-card-content {
+  gap: 0;
+  transform: none;
+}
+
+body.slot-drag-active .gu-mirror.slot-drag-mirror .shortcut-icon {
+  opacity: 0.5;
+  transform: scale(0.88);
+}
+
+body.slot-drag-active .gu-mirror.slot-drag-mirror {
+  min-height: 156px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.setup-button-card {
   position: relative;
-  min-height: 166px;
+  min-height: 156px;
   width: 100%;
-  height: 100%;
-  padding: 18px 14px 16px;
+  height: 156px;
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  background: linear-gradient(180deg, #ffffff 0%, var(--surface-2) 100%);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  text-align: left;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   box-shadow: var(--shadow-sm);
   overflow: hidden;
+}
+
+.slot-card {
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 140ms ease, opacity 140ms ease;
+  transform-origin: center;
 }
 
 .slot-card.empty {
   justify-content: center;
   border-style: dashed;
   color: var(--text-3);
+  background: linear-gradient(180deg, #ffffff 0%, var(--surface-2) 100%);
 }
 
 .slot-position {
@@ -87,17 +167,12 @@
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.14);
-  color: var(--text-2);
-}
-
-.slot-icon {
-  width: auto;
-  height: auto;
-  display: grid;
-  place-items: center;
-  margin-top: 18px;
-  color: var(--text-1);
+  background: var(--red-bg);
+  color: var(--red-text);
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .slot-icon .ui-icon,
@@ -112,30 +187,65 @@
   line-height: 1;
 }
 
-.slot-copy {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
+.setup-button-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
 }
 
-.slot-label {
+.setup-button-card .shortcut-label {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--panel-blue);
 }
 
-.slot-meta {
-  font-size: 12px;
-  color: var(--accent-text);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.setup-button-card .key-chips {
+  gap: 6px;
+  justify-content: center;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
-.slot-description,
+.setup-button-card.is-single-button .shortcut-icon .ui-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.setup-button-card.is-single-button .shortcut-icon .icon-fallback {
+  font-size: 50px;
+}
+
+.setup-button-card.is-single-button .key-chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 13px;
+  font-size: 16px;
+}
+
 .empty-hint {
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--text-3);
+}
+
+.slot-card.is-updated {
+  animation: slot-settle 160ms ease-out;
+}
+
+@keyframes slot-settle {
+  0% {
+    opacity: 0.92;
+    transform: scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 720px) {
@@ -150,10 +260,10 @@
 
   .slot-shell > .gu-transit,
   .slot-shell > .suggestion-card {
-    min-height: 166px;
+    min-height: 156px;
   }
 
-  .slot-card {
+  .setup-button-card {
     width: 100%;
   }
 }

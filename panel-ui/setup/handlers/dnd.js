@@ -1,36 +1,98 @@
-import dragula from '../dragula.js';
 import { deepClone } from '../utils/clone.js';
+import { SLOT_LIMIT } from '../constants.js';
+import { normaliseSlotButtons } from '../services/normalise.js';
 import { state } from '../state.js';
 
 let dndBound = false;
-let slotDrake = null;
+let nativeLibraryDndBound = false;
+let nativeSlotDndBound = false;
+let activeLibraryDragIndex = null;
+let activeSlotDragIndex = null;
+let slotDropHandled = false;
+let pointerClientX = 0;
+let pointerClientY = 0;
+let liveEls = null;
+let activeSourceSlotShell = null;
 
 function currentButtons() {
-  return state.config.apps[state.activeApp].sets[state.activeSetIndex].buttons;
+  const set = state.config.apps[state.activeApp].sets[state.activeSetIndex];
+  set.buttons = normaliseSlotButtons(set.buttons, state.activeApp);
+  return set.buttons;
 }
-
-function destroySlotDrake() {
-  if (slotDrake) {
-    slotDrake.destroy();
-    slotDrake = null;
-  }
-}
-
-const SLOT_LIMIT = 5;
 
 function getTargetSlotIndex(container) {
-  // Always validate against the fixed SLOT_LIMIT, not the current buttons array
-  // length — for fresh/empty apps the array is [], so slotCount would be 0 and
-  // every valid slot index (0-4) would fail the old < slotCount guard.
   const index = Number(container?.dataset.slotIndex);
   return Number.isInteger(index) && index >= 0 && index < SLOT_LIMIT ? index : 0;
 }
 
-function rerenderAfterDrop(renderDashboard, renderLibrary) {
-  window.setTimeout(() => {
-    renderDashboard({ refreshDnd: true });
+function rerenderAfterDrop(renderDashboard, renderLibrary, { refreshLibrary = false, afterRender = null } = {}) {
+  renderDashboard({ refreshDnd: true });
+  if (refreshLibrary) {
     renderLibrary();
-  }, 0);
+  }
+  afterRender?.();
+}
+
+function flashUpdatedSlots(els, slotIndexes = []) {
+  const uniqueIndexes = [...new Set(slotIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < SLOT_LIMIT))];
+  if (!uniqueIndexes.length || !els?.slotRow) {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    uniqueIndexes.forEach((index) => {
+      const slotCard = els.slotRow.querySelector(`.slot-card[data-slot-index="${index}"]`);
+      if (!slotCard) return;
+      slotCard.classList.remove('is-updated');
+      void slotCard.offsetWidth;
+      slotCard.classList.add('is-updated');
+    });
+  });
+}
+
+function clearSlotHighlights(els) {
+  [...(els.slotRow?.querySelectorAll('.slot-shell') || [])].forEach((container) => container.classList.remove('drag-over'));
+  els.suggestionsGrid?.classList.remove('drop-remove');
+}
+
+function clearSourceSlotPlaceholder() {
+  if (!activeSourceSlotShell) {
+    return;
+  }
+  activeSourceSlotShell.classList.remove('is-drag-source');
+}
+
+function setActiveSourceSlotShell(container) {
+  if (activeSourceSlotShell === container) {
+    return;
+  }
+
+  clearSourceSlotPlaceholder();
+  activeSourceSlotShell = container || null;
+  if (!activeSourceSlotShell) {
+    return;
+  }
+
+  activeSourceSlotShell.classList.add('is-drag-source');
+}
+
+function getLibraryHoverTarget(els) {
+  const hovered = document.elementFromPoint(pointerClientX, pointerClientY);
+  return hovered?.closest?.('#suggestionsGrid') ? els.suggestionsGrid : null;
+}
+
+function updateLibraryHoverState(els) {
+  if (!els.suggestionsGrid) return;
+  els.suggestionsGrid.classList.toggle('drop-remove', activeSlotDragIndex !== null && Boolean(getLibraryHoverTarget(els)));
+}
+
+function clearSlotDragState(els) {
+  document.body.classList.remove('slot-drag-active');
+  setActiveSourceSlotShell(null);
+  clearSlotHighlights(els);
+  if (els?.suggestionsGrid) {
+    els.suggestionsGrid.classList.remove('drop-remove');
+  }
 }
 
 export function initDndHandlers() {
@@ -38,99 +100,174 @@ export function initDndHandlers() {
     return;
   }
   dndBound = true;
+
+  document.addEventListener('mousemove', (event) => {
+    pointerClientX = event.clientX;
+    pointerClientY = event.clientY;
+    if (activeSlotDragIndex !== null && liveEls) {
+      updateLibraryHoverState(liveEls);
+    }
+  });
 }
 
 export function refreshDndInteractions(els, getLibraryButtons, { markDirty, renderDashboard, renderLibrary }) {
-  destroySlotDrake();
-
   if (!els.suggestionsGrid || !els.slotRow) {
     return;
   }
+  liveEls = els;
 
-  const slotContainers = [...els.slotRow.querySelectorAll('.slot-shell')];
-  if (!slotContainers.length) {
-    return;
+  if (!nativeLibraryDndBound) {
+    nativeLibraryDndBound = true;
+
+    els.suggestionsGrid.addEventListener('dragstart', (event) => {
+      const card = event.target.closest('[data-library-card]');
+      if (!card) return;
+      activeLibraryDragIndex = Number(card.dataset.libraryIndex);
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData('text/plain', String(activeLibraryDragIndex));
+      document.body.classList.add('library-dragging');
+    });
+
+    els.suggestionsGrid.addEventListener('dragend', () => {
+      activeLibraryDragIndex = null;
+      document.body.classList.remove('library-dragging');
+      clearSlotDragState(els);
+    });
+
+    els.slotRow.addEventListener('dragover', (event) => {
+      if (activeLibraryDragIndex === null) return;
+      const slotShell = event.target.closest('.slot-shell');
+      if (!slotShell) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      clearSlotHighlights(els);
+      slotShell.classList.add('drag-over');
+    });
+
+    els.slotRow.addEventListener('drop', (event) => {
+      if (activeLibraryDragIndex === null) return;
+      const slotShell = event.target.closest('.slot-shell');
+      clearSlotHighlights(els);
+      if (!slotShell) return;
+
+      event.preventDefault();
+      const targetIndex = getTargetSlotIndex(slotShell);
+      const libraryButtons = getLibraryButtons();
+      const libraryButton = libraryButtons[activeLibraryDragIndex];
+      activeLibraryDragIndex = null;
+      document.body.classList.remove('library-dragging');
+
+      if (!libraryButton) {
+        rerenderAfterDrop(renderDashboard, renderLibrary);
+        return;
+      }
+
+      currentButtons()[targetIndex] = deepClone(libraryButton);
+      markDirty({ silent: true, refreshSidebar: false, refreshDashboard: false, refreshLibrary: false });
+      rerenderAfterDrop(renderDashboard, renderLibrary, {
+        afterRender: () => flashUpdatedSlots(els, [targetIndex])
+      });
+    });
   }
 
-  slotDrake = dragula([els.suggestionsGrid, ...slotContainers], {
-    copy: (_el, source) => source === els.suggestionsGrid,
-    accepts: (_el, target) => target === els.suggestionsGrid || slotContainers.includes(target),
-    revertOnSpill: true,
-    moves: (el, source) => {
-      if (source === els.suggestionsGrid) {
-        return el.classList.contains('suggestion-card');
-      }
-      return slotContainers.includes(source) && el.classList.contains('slot-card') && !el.classList.contains('empty');
+  if (nativeSlotDndBound) {
+    return;
+  }
+  nativeSlotDndBound = true;
+
+  els.slotRow.addEventListener('dragstart', (event) => {
+    if (activeLibraryDragIndex !== null) {
+      return;
     }
+
+    const card = event.target.closest('.slot-card');
+    const slotShell = event.target.closest('.slot-shell');
+    if (!card || !slotShell || card.classList.contains('empty')) {
+      return;
+    }
+
+    activeSlotDragIndex = getTargetSlotIndex(slotShell);
+    slotDropHandled = false;
+    document.body.classList.add('slot-drag-active');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(activeSlotDragIndex));
+    window.requestAnimationFrame(() => {
+      setActiveSourceSlotShell(slotShell);
+    });
   });
 
-  slotDrake.on('over', (_el, container) => {
-    if (slotContainers.includes(container)) {
-      container.classList.add('drag-over');
+  els.slotRow.addEventListener('dragover', (event) => {
+    if (activeSlotDragIndex === null || activeLibraryDragIndex !== null) {
+      return;
     }
+
+    const slotShell = event.target.closest('.slot-shell');
+    if (!slotShell) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    clearSlotHighlights(els);
+    slotShell.classList.add('drag-over');
   });
 
-  slotDrake.on('out', (_el, container) => {
-    if (slotContainers.includes(container)) {
-      container.classList.remove('drag-over');
+  els.slotRow.addEventListener('drop', (event) => {
+    if (activeSlotDragIndex === null || activeLibraryDragIndex !== null) {
+      return;
     }
-  });
 
-  slotDrake.on('drop', (el, target, source) => {
-    slotContainers.forEach((container) => container.classList.remove('drag-over'));
-    if (!target) {
+    const slotShell = event.target.closest('.slot-shell');
+    if (!slotShell) {
+      return;
+    }
+
+    event.preventDefault();
+    slotDropHandled = true;
+
+    const buttons = currentButtons();
+    const fromIndex = activeSlotDragIndex;
+    const targetIndex = getTargetSlotIndex(slotShell);
+
+    clearSlotDragState(els);
+
+    if (targetIndex !== fromIndex) {
+      const displaced = buttons[targetIndex] || null;
+      buttons[targetIndex] = buttons[fromIndex] || null;
+      buttons[fromIndex] = displaced;
+      markDirty({ silent: true, refreshSidebar: false, refreshDashboard: false, refreshLibrary: false });
+      rerenderAfterDrop(renderDashboard, renderLibrary, {
+        afterRender: () => flashUpdatedSlots(els, [fromIndex, targetIndex])
+      });
+    } else {
       rerenderAfterDrop(renderDashboard, renderLibrary);
+    }
+
+    activeSlotDragIndex = null;
+    slotDropHandled = false;
+  });
+
+  els.slotRow.addEventListener('dragend', () => {
+    if (activeSlotDragIndex === null || activeLibraryDragIndex !== null) {
       return;
     }
 
     const buttons = currentButtons();
+    const fromIndex = activeSlotDragIndex;
 
-    if (target === els.suggestionsGrid) {
-      if (slotContainers.includes(source)) {
-        const fromIndex = getTargetSlotIndex(source);
-        buttons[fromIndex] = null;
-        markDirty();
-      }
-      rerenderAfterDrop(renderDashboard, renderLibrary);
-      return;
-    }
-
-    if (!slotContainers.includes(target)) {
-      rerenderAfterDrop(renderDashboard, renderLibrary);
-      return;
-    }
-
-    const targetIndex = getTargetSlotIndex(target);
-
-    if (source === els.suggestionsGrid) {
-      const libraryButtons = getLibraryButtons();
-      const libraryButton = libraryButtons[Number(el.dataset.libraryIndex)];
-
-      if (el.parentNode === target) {
-        el.parentNode.removeChild(el);
-      }
-      if (libraryButton) {
-        buttons[targetIndex] = deepClone(libraryButton);
-        markDirty();
-      }
-      rerenderAfterDrop(renderDashboard, renderLibrary);
-      return;
-    }
-
-    if (slotContainers.includes(source)) {
-      const fromIndex = getTargetSlotIndex(source);
-      if (targetIndex !== fromIndex) {
-        const displaced = buttons[targetIndex] || null;
-        buttons[targetIndex] = buttons[fromIndex] || null;
-        buttons[fromIndex] = displaced;
-        markDirty();
-      }
+    if (!slotDropHandled && getLibraryHoverTarget(els)) {
+      buttons[fromIndex] = null;
+      markDirty({ silent: true, refreshSidebar: false, refreshDashboard: false, refreshLibrary: false });
+      clearSlotDragState(els);
+      rerenderAfterDrop(renderDashboard, renderLibrary, {
+        afterRender: () => flashUpdatedSlots(els, [fromIndex])
+      });
+    } else {
+      clearSlotDragState(els);
       rerenderAfterDrop(renderDashboard, renderLibrary);
     }
-  });
 
-  slotDrake.on('cancel', () => {
-    slotContainers.forEach((container) => container.classList.remove('drag-over'));
-    rerenderAfterDrop(renderDashboard, renderLibrary);
+    activeSlotDragIndex = null;
+    slotDropHandled = false;
   });
 }

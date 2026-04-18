@@ -1,7 +1,10 @@
+import '../../shared/runtime-core.js';
 import { PLATFORM_IDS } from '../../shared/app-meta.js';
 import { createStep } from '../../shared/action-schema.js';
 import { SEQUENCE_PRESETS } from '../sequence-presets.js';
 import { deepClone } from '../utils/clone.js';
+
+const { resolveButtonSteps } = globalThis.KeyPilotCore;
 
 const modifierSwap = {
   Command: 'Ctrl',
@@ -44,9 +47,7 @@ export function createDefaultMappings(appIds = [], platforms = PLATFORM_IDS, act
 }
 
 export function getResolvedSteps(button, appId, platform) {
-  const steps = button.mappings?.[appId]?.[platform]?.steps
-    || button.mappings?.[appId]?.[platform === 'mac' ? 'win' : 'mac']?.steps
-    || [];
+  const steps = resolveButtonSteps(button, appId, platform);
   if (button?.id) {
     console.debug('[KeyPilot] getResolvedSteps', {
       buttonId: button.id,
@@ -73,7 +74,8 @@ export function applySequencePreset(button, presetId, targetApp, targetPlatforms
 
   const appliedPlatforms = [];
   targetPlatforms.forEach((platform) => {
-    const sourceSteps = preset.mappings[targetApp][platform];
+    const platformMapping = preset.mappings[targetApp][platform];
+    const sourceSteps = Array.isArray(platformMapping) ? platformMapping : platformMapping?.steps;
     if (!sourceSteps) return;
     button.mappings[targetApp][platform] = { steps: deepClone(sourceSteps) };
     appliedPlatforms.push(platform);

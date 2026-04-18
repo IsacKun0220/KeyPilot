@@ -1,4 +1,5 @@
 import { APP_ICON_FALLBACKS, APP_LABELS, APP_LOGOS, APP_NAV_LABELS } from '../shared/app-meta.js';
+import { truncateValue } from '../shared/button-presenters.js';
 import { getResolvedSteps } from '../setup/services/mapping.js';
 import { escapeHtml, createButtonMarkup, renderKeyChips } from '../setup/utils/dom.js';
 import { panelState } from './state.js';
@@ -10,12 +11,6 @@ function activeAppData() {
 function activeSetIndex() {
   const count = activeAppData()?.sets?.length || 0;
   return Math.max(0, Math.min(panelState.activeSetByApp[panelState.activeApp] || 0, Math.max(count - 1, 0)));
-}
-
-function truncateValue(value = '', maxLength = 22) {
-  const text = String(value || '').trim();
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength - 1)}…`;
 }
 
 function renderPanelAppTitle(appId) {
@@ -68,9 +63,8 @@ export function renderPanel(els) {
   const setIndex = activeSetIndex();
   const set = app.sets[setIndex] || { name: 'Main', buttons: [] };
   const slots = new Array(5).fill(null).map((_, index) => set.buttons[index] || null);
-
-  els.appName.innerHTML = renderPanelAppTitle(panelState.activeApp);
-  els.track.innerHTML = `
+  const titleMarkup = renderPanelAppTitle(panelState.activeApp);
+  const trackMarkup = `
     <section class="panel-layout">
       <div class="panel-tabs-row">
         <section class="set-tabs panel-set-tabs">
@@ -89,14 +83,23 @@ export function renderPanel(els) {
             return '<div class="shortcut-card shortcut-card-empty" aria-hidden="true"></div>';
           }
           return `
-            <button type="button" class="shortcut-card" data-button-id="${escapeHtml(button.id)}">
+            <button type="button" class="shortcut-card ${button.actionType === 'single' ? 'is-single-button' : ''}" data-button-id="${escapeHtml(button.id)}">
               <div class="shortcut-icon">${createButtonMarkup(button)}</div>
               <div class="shortcut-label">${escapeHtml(button.label)}</div>
-              <div class="key-chips">${renderButtonPreview(button)}</div>
+              ${button.actionType === 'sequence' ? '' : `<div class="key-chips">${renderButtonPreview(button)}</div>`}
             </button>
           `;
         }).join('')}
       </div>
     </section>
   `;
+
+  if (els._panelTitleMarkup !== titleMarkup) {
+    els.appName.innerHTML = titleMarkup;
+    els._panelTitleMarkup = titleMarkup;
+  }
+  if (els._panelTrackMarkup !== trackMarkup) {
+    els.track.innerHTML = trackMarkup;
+    els._panelTrackMarkup = trackMarkup;
+  }
 }

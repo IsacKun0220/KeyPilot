@@ -7,9 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/app.css?v=20260417a">
+    <link rel="stylesheet" href="/styles/app.css?v=20260418a">
     <link rel="stylesheet" href="/node_modules/dragula/dist/dragula.css">
-    <link rel="stylesheet" href="/styles/setup-block-editor.css?v=20260415d">
+    <link rel="stylesheet" href="/styles/setup-block-editor.css?v=20260418a">
   </head>
   <body class="setup-page">
     <div class="setup-shell">
@@ -40,29 +40,32 @@
       <main class="setup-main">
         <section class="content-wrap">
           <section class="content-panel">
-            <div class="content-head">
-              <div class="content-title">
-                <h1 id="appHeading">Word</h1>
-              </div>
-              <div class="actions">
-                <span id="dirtyBadge" class="badge unsaved hidden">Saving...</span>
-              </div>
-            </div>
-
-            <div id="setTabs" class="set-tabs"></div>
-            <div id="slotRow" class="slot-row"></div>
-
-            <section class="library-shell">
-              <div class="library-head">
-                <div class="library-head-top">
-                  <div>
-                    <h3>Shortcut library</h3>
-                    <p>Use presets as-is, drag them into a slot, or open the editor to build a single action or a short sequence.</p>
-                  </div>
-                  <button id="customEntryButton" type="button" class="btn dashed library-create-button">+ Create custom button</button>
+            <section class="workspace-sticky-section">
+              <div class="content-head">
+                <div class="content-title">
+                  <h1 id="appHeading">Word</h1>
+                </div>
+                <div class="actions">
+                  <span id="dirtyBadge" class="badge unsaved hidden">Saving...</span>
                 </div>
               </div>
-              <div id="libraryFilters" class="library-filters"></div>
+              <div id="setTabs" class="set-tabs"></div>
+              <div id="slotRow" class="slot-row"></div>
+            </section>
+
+            <section class="library-shell">
+              <section class="library-sticky-section">
+                <div class="library-head">
+                  <div class="library-head-top">
+                    <div>
+                      <h3>Button library</h3>
+                      <p>Drag into a slot or edit to customize.</p>
+                    </div>
+                    <button id="customEntryButton" type="button" class="btn dashed library-create-button">+ New button</button>
+                  </div>
+                </div>
+                <div id="libraryFilters" class="library-filters"></div>
+              </section>
               <div id="suggestionsGrid" class="suggestions-grid"></div>
             </section>
           </section>
@@ -105,6 +108,6 @@
     <div id="toast" class="toast"></div>
 
     <script src="/node_modules/dragula/dist/dragula.js"></script>
-    <script type="module" src="/setup/main.js?v=20260415g"></script>
+    <script type="module" src="/setup/main.js?v=20260417e"></script>
   </body>
 </html>

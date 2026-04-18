@@ -256,21 +256,24 @@ function renderWizardHeader(currentStep) {
 
 function renderWizardFooter(currentStep, mode = 'create') {
   const isLastStep = currentStep === WIZARD_STEPS.length - 1;
-  const hidePrimaryAction = mode === 'edit' && isLastStep;
+  const primaryLabel = isLastStep
+    ? (mode === 'edit' ? 'Save' : 'Create button')
+    : 'Next';
   return `
     <footer class="editor-footer">
       <div class="editor-footer-start">
-        ${currentStep === 0 ? '' : '<button type="button" class="btn" data-editor-nav="back">Back</button>'}
+        ${isLastStep
+          ? '<button type="button" class="btn" data-editor-nav="cancel">Cancel</button>'
+          : (currentStep === 0 ? '' : '<button type="button" class="btn" data-editor-nav="back">Back</button>')}
       </div>
       <div class="editor-footer-center">
         <span class="editor-progress-indicator">Step ${currentStep + 1} of ${WIZARD_STEPS.length}</span>
       </div>
       <div class="editor-footer-end">
-        ${hidePrimaryAction
-          ? ''
-          : isLastStep
-          ? '<button type="button" class="btn primary" data-editor-nav="save">Save</button>'
-          : '<button type="button" class="btn primary" data-editor-nav="next">Next</button>'}
+        ${isLastStep && mode === 'edit'
+          ? '<button type="button" class="btn danger" data-editor-nav="delete">Delete button</button>'
+          : ''}
+        <button type="button" class="btn primary" data-editor-nav="${isLastStep ? 'save' : 'next'}">${primaryLabel}</button>
       </div>
     </footer>
   `;
@@ -285,10 +288,10 @@ export function renderEditor(els) {
   els.editorTitle.textContent = state.editor.mode === 'edit' ? 'Edit button' : 'Create button';
   els.editorSheet.classList.toggle('open', state.editor.open);
   els.sheetBackdrop.classList.toggle('open', state.editor.open);
-  els.editorRemove.classList.toggle('hidden', state.editor.mode !== 'edit');
-  els.editorRemove.textContent = state.editor.mode === 'edit' ? 'Discard' : 'Remove';
-  els.editorDone.classList.toggle('hidden', state.editor.mode !== 'edit');
-  els.editorDone.textContent = 'Save';
+  els.editorRemove.classList.add('hidden');
+  els.editorRemove.textContent = 'Delete button';
+  els.editorDone.classList.add('hidden');
+  els.editorDone.textContent = state.editor.mode === 'edit' ? 'Save' : 'Create button';
   els.editorDone.classList.add('primary');
   els.editorStatus.textContent = state.editor.validationMessage
     || (state.editor.recordingTarget !== null
@@ -328,6 +331,17 @@ export function renderEditor(els) {
   const footerMarkup = renderWizardFooter(currentStep, state.editor.mode);
   const overlayMarkup = renderIconBrowser(state.editor);
   const view = ensureEditorShell(els);
+  const dndSignature = currentStep === 1
+    ? JSON.stringify({
+        currentStep,
+        open: state.editor.open,
+        selectedApp: state.editor.selectedApp,
+        selectedPlatform: state.editor.selectedPlatform,
+        presetPickerOpen: state.editor.presetPickerOpen,
+        expandedCategory: state.editor.blockEditor?.expandedCategory || '',
+        stepTypes: (draft.mappings?.[state.editor.selectedApp]?.[state.editor.selectedPlatform]?.steps || []).map((step) => step?.type || '')
+      })
+    : '';
 
   if (view.cache.header !== headerMarkup) {
     view.header.innerHTML = headerMarkup;
@@ -353,6 +367,7 @@ export function renderEditor(els) {
   els._editorRenderMeta = {
     open: state.editor.open,
     currentStep,
-    stepContentChanged
+    stepContentChanged,
+    dndSignature
   };
 }

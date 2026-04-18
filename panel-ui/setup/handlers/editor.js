@@ -1,699 +1,102 @@
+import '../../shared/runtime-core.js';
 import { createStep } from '../../shared/action-schema.js';
 import { DEFAULT_ICON_ID } from '../../shared/icons/index.js';
-import dragula from '../dragula.js';
 import { APP_IDS, PLATFORM_IDS, STEP_LIMITS } from '../constants.js';
 import { state } from '../state.js';
-import { ensureAppPlatformMapping } from '../schema.js';
-import { createDefaultMappings, cloneMapping, applySequencePreset } from '../services/mapping.js';
-import { validateButton } from '../services/validation.js';
-import { normaliseButton } from '../services/normalise.js';
-import { getSuggestedIcons } from '../render/icon-suggestions.js';
-import { deepClone } from '../utils/clone.js';
-import { createId } from '../utils/ids.js';
+import { cloneMapping, applySequencePreset } from '../services/mapping.js';
+import { hasBlockEditorDrake, syncBlockEditorDragula, destroyBlockEditorDrake } from './editor-dnd.js';
+import {
+  clearKeystrokeUiState,
+  commitComboDraft,
+  createRecordingHandlers,
+  enableRecordingCapture,
+  ensureComboDraft,
+  resetCombo,
+  resetComboDraftState,
+  resetRecordingState,
+  setComboDraft,
+  startShortcutRecording,
+  stopShortcutRecording
+} from './editor-recording.js';
+import { closeEditor, deleteEditorDraft, openEditor, requestCloseEditor, saveEditorDraft, syncSuggestedIcon } from './editor-save.js';
+import {
+  advanceEditorStep,
+  clampNumber,
+  clearDelayUnitsForSelection,
+  getActiveSteps,
+  getDelayUnit,
+  parseComboInput,
+  rerender,
+  rerenderPreservingSelection,
+  setDelayUnit,
+  syncActionTypeFromSteps,
+  syncScopeMappings,
+  ensureActionTypeSteps
+} from './editor-shared.js';
+
+export { openEditor, closeEditor };
 
 let editorBound = false;
-let blockEditorDrake = null;
 let labelInputTimer = null;
 let iconSearchTimer = null;
-let recordingFrame = 0;
-let recordingCaptureCleanup = null;
 
-function currentSet() {
-  return state.config.apps[state.activeApp].sets[state.activeSetIndex];
-}
-
-function getActiveSteps() {
-  return ensureAppPlatformMapping(state.editor.draft, state.editor.selectedApp, state.editor.selectedPlatform).steps;
-}
-
-function rerender(renderEditorOnly) {
-  state.editor.validationMessage = '';
-  renderEditorOnly();
-}
-
-function rerenderPreservingSelection(renderEditorOnly, element) {
-  const selector = element?.id ? `#${element.id}` : null;
-  const start = typeof element?.selectionStart === 'number' ? element.selectionStart : null;
-  const end = typeof element?.selectionEnd === 'number' ? element.selectionEnd : null;
-  rerender(renderEditorOnly);
-  if (!selector) return;
-  const next = document.querySelector(selector);
-  if (!next) return;
-  next.focus();
-  if (start !== null && end !== null && typeof next.setSelectionRange === 'function') {
-    next.setSelectionRange(start, end);
-  }
-}
-
-function syncScopeMappings() {
-  const draft = state.editor.draft;
-  const nextMappings = createDefaultMappings(draft.scope.apps, draft.scope.platforms, draft.actionType);
-  draft.scope.apps.forEach((appId) => {
-    draft.scope.platforms.forEach((platform) => {
-      if (draft.mappings?.[appId]?.[platform]) {
-        nextMappings[appId][platform] = draft.mappings[appId][platform];
-      }
-    });
-  });
-  draft.mappings = nextMappings;
-  state.editor.selectedApp = draft.scope.apps[0] || APP_IDS[0];
-  state.editor.selectedPlatform = draft.scope.platforms[0] || PLATFORM_IDS[0];
-}
-
-function advanceEditorStep(renderEditorOnly) {
-  if (state.editor.currentStep === 1) {
-    clearKeystrokeUiState();
-  }
-  state.editor.openDropdown = null;
-  state.editor.currentStep = Math.min(2, state.editor.currentStep + 1);
-  rerender(renderEditorOnly);
-}
-
-function parseComboInput(value) {
-  return String(value || '').split('+').map((token) => token.trim()).filter(Boolean);
-}
-
-function resetRecordingState() {
-  state.editor.recordingTarget = null;
-  state.editor.recordingKeys = [];
-  state.editor.recordingPreviewKeys = [];
-  state.editor.recordingHeldKeys = {};
-  if (typeof recordingCaptureCleanup === 'function') {
-    recordingCaptureCleanup();
-    recordingCaptureCleanup = null;
-  }
-}
-
-function resetComboDraftState() {
-  state.editor.comboDraftTarget = null;
-  state.editor.comboDraftKeys = [];
-}
-
-function stopShortcutRecording(renderEditorOnly, { preserveMessage = false } = {}) {
-  const activeTarget = state.editor.recordingTarget;
-  const committed = activeTarget !== null ? commitComboDraft(activeTarget) : false;
-  if (!preserveMessage && !committed) {
-    state.editor.validationMessage = '';
-  }
-  resetRecordingState();
-  renderEditorOnly();
-}
-
-function clearRecordingState() {
-  resetRecordingState();
-  state.editor.validationMessage = '';
-}
-
-function clearComboEditingState() {
-  resetComboDraftState();
-}
-
-function clearKeystrokeUiState() {
-  clearRecordingState();
-  clearComboEditingState();
-}
-
-function setComboDraft(index, keys) {
-  state.editor.comboDraftTarget = index;
-  state.editor.comboDraftKeys = Array.isArray(keys) ? [...keys].slice(0, STEP_LIMITS.comboMaxKeys) : [];
-}
-
-function getStepComboKeys(step) {
-  return Array.isArray(step?.keys) ? step.keys.filter(Boolean) : [];
-}
-
-function getStepPressKeys(step) {
-  return [...(Array.isArray(step?.modifiers) ? step.modifiers : []), step?.key].filter(Boolean);
-}
-
-function getStepRecordedKeys(step) {
-  if (!step) return [];
-  if (step.type === 'keyCombo') return getStepComboKeys(step);
-  if (step.type === 'keyPress') return getStepPressKeys(step);
-  return [];
-}
-
-function ensureComboDraft(index) {
-  const step = getActiveSteps()[index];
-  if (!step || !['keyCombo', 'keyPress'].includes(step.type)) return [];
-  if (state.editor.comboDraftTarget !== index) {
-    setComboDraft(index, getStepRecordedKeys(step));
-  }
-  return state.editor.comboDraftKeys;
-}
-
-function commitComboDraft(index) {
-  const step = getActiveSteps()[index];
-  if (!step || !['keyCombo', 'keyPress'].includes(step.type)) return false;
-  const nextKeys = state.editor.comboDraftTarget === index
-    ? [...state.editor.comboDraftKeys]
-    : getStepRecordedKeys(step);
-
-  if (step.type === 'keyCombo') {
-    const primaryCount = nextKeys.filter((token) => !isModifierToken(token)).length;
-    if (primaryCount !== 1) {
-      state.editor.validationMessage = primaryCount === 0
-        ? 'Shortcut needs one non-modifier key.'
-        : 'Shortcut can only use one non-modifier key.';
-      return false;
-    }
-    step.keys = nextKeys;
-    resetComboDraftState();
-    state.editor.validationMessage = nextKeys.length ? 'Shortcut saved.' : 'Shortcut cleared.';
-    return true;
-  }
-
-  const primaryKeys = nextKeys.filter((token) => !isModifierToken(token));
-  if (primaryKeys.length !== 1) {
-    state.editor.validationMessage = primaryKeys.length === 0
-      ? 'Press key needs one key plus optional modifiers.'
-      : 'Press key can only use one key plus optional modifiers.';
-    return false;
-  }
-  if (!SUPPORTED_PRESS_KEYS.includes(primaryKeys[0])) {
-    state.editor.validationMessage = 'Press key recording works with Enter, Tab, Escape, arrows, function keys, and other supported navigation keys.';
-    return false;
-  }
-  step.key = primaryKeys[0];
-  step.modifiers = getOrderedModifierTokens(nextKeys.filter((token) => isModifierToken(token)));
-  resetComboDraftState();
-  state.editor.validationMessage = 'Key press saved.';
-  return true;
-}
-
-function resetCombo(index) {
-  const step = getActiveSteps()[index];
-  if (!step || !['keyCombo', 'keyPress'].includes(step.type)) return false;
-  if (step.type === 'keyCombo') {
-    step.keys = [];
-  } else {
-    step.key = '';
-    step.modifiers = [];
-  }
-  if (state.editor.comboDraftTarget === index) {
-    resetComboDraftState();
-  }
-  if (state.editor.recordingTarget === index) {
-    resetRecordingState();
-  }
-  state.editor.validationMessage = step.type === 'keyCombo' ? 'Shortcut cleared.' : 'Key press cleared.';
-  return true;
-}
-
-function startShortcutRecording(index) {
-  const step = getActiveSteps()[index];
-  if (!step || !['keyCombo', 'keyPress'].includes(step.type)) return false;
-  state.editor.recordingTarget = index;
-  state.editor.recordingKeys = [];
-  state.editor.recordingPreviewKeys = [];
-  setComboDraft(index, getStepRecordedKeys(step));
-  state.editor.validationMessage = 'Press the keys you want, then stop.';
-  return true;
-}
-
-function enableRecordingCapture(els) {
-  if (typeof recordingCaptureCleanup === 'function') {
-    recordingCaptureCleanup();
-    recordingCaptureCleanup = null;
-  }
-
-  const previousActive = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  const target = els?.editorBody || els?.editorSheet || document.body;
-
-  if (target instanceof HTMLElement) {
-    if (!target.hasAttribute('tabindex')) {
-      target.dataset.recordingTabindexAdded = 'true';
-      target.tabIndex = -1;
-    }
-    target.focus({ preventScroll: true });
-  }
-
-  let released = false;
-  const unlockKeyboard = async () => {
-    if (!navigator.keyboard?.unlock) return;
-    try {
-      navigator.keyboard.unlock();
-    } catch (_) {}
-  };
-
-  const lockKeyboard = async () => {
-    if (!navigator.keyboard?.lock) return;
-    try {
-      await navigator.keyboard.lock();
-    } catch (_) {}
-  };
-
-  lockKeyboard().catch(() => {});
-
-  recordingCaptureCleanup = () => {
-    if (released) return;
-    released = true;
-    unlockKeyboard().catch(() => {});
-    if (target instanceof HTMLElement && target.dataset.recordingTabindexAdded === 'true') {
-      target.removeAttribute('tabindex');
-      delete target.dataset.recordingTabindexAdded;
-    }
-    if (previousActive && previousActive.isConnected) {
-      previousActive.focus({ preventScroll: true });
-    }
-  };
-}
-
-function getDelayUnitKey(index) {
-  return `${state.editor.selectedApp}:${state.editor.selectedPlatform}:${index}`;
-}
-
-function getDelayUnit(index) {
-  return state.editor.blockEditor.delayUnits[getDelayUnitKey(index)] || 'seconds';
-}
-
-function setDelayUnit(index, unit) {
-  state.editor.blockEditor.delayUnits[getDelayUnitKey(index)] = unit;
-}
-
-function clearDelayUnitsForSelection() {
-  Object.keys(state.editor.blockEditor.delayUnits).forEach((key) => {
-    if (key.startsWith(`${state.editor.selectedApp}:${state.editor.selectedPlatform}:`)) {
-      delete state.editor.blockEditor.delayUnits[key];
-    }
-  });
-}
-
-function clampNumber(value, min, max, fallback) {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
-}
-
-function syncActionTypeFromSteps() {
-  const steps = getActiveSteps();
-  state.editor.draft.actionType = steps.length > 1 ? 'sequence' : 'single';
-}
-
-function rerenderAfterDrag(renderEditorOnly) {
-  window.setTimeout(() => {
-    renderEditorOnly();
-  }, 0);
-}
-
-function scheduleRecordingRender(renderEditorOnly) {
-  if (recordingFrame) {
-    return;
-  }
-  recordingFrame = window.requestAnimationFrame(() => {
-    recordingFrame = 0;
-    renderEditorOnly();
-  });
-}
-
-function getRenderedStepIndex(element) {
-  const stepEl = element?.matches?.('[data-step-index]') ? element : element?.querySelector?.('[data-step-index]');
-  return stepEl ? Number(stepEl.dataset.stepIndex) : null;
-}
-
-function destroyBlockEditorDrake() {
-  if (blockEditorDrake) {
-    blockEditorDrake.destroy();
-    blockEditorDrake = null;
-  }
-}
-
-function setPaletteDeleteState(root, active) {
-  const palette = root?.querySelector?.('[data-kp-palette]');
-  if (!palette) return;
-  palette.classList.toggle('is-delete-target', active);
-}
-
-function clearPaletteDeleteState(root) {
-  setPaletteDeleteState(root, false);
-}
-
-function syncBlockEditorDragula(renderEditorOnly, root = document) {
-  destroyBlockEditorDrake();
-  clearPaletteDeleteState(root);
-
-  if (!state.editor.open || state.editor.currentStep !== 1) {
+function updateStepDropdownPlacement(els) {
+  const editorBody = els.editorBody;
+  if (!(editorBody instanceof HTMLElement)) {
     return;
   }
 
-  const menuEl = root.querySelector('[data-kp-palette]');
-  const scriptEl = root.querySelector('[data-kp-canvas]');
-  const paletteSources = [...root.querySelectorAll('.kp-cat-blocks')].filter((element) => !element.classList.contains('hidden') && element.querySelector('.kp-step'));
-  if (!menuEl || !scriptEl) {
-    return;
-  }
+  const sheetBody = editorBody.closest('.sheet-body');
+  const footer = editorBody.querySelector('.editor-footer');
+  const bodyRect = (sheetBody instanceof HTMLElement ? sheetBody : editorBody).getBoundingClientRect();
+  const footerRect = footer instanceof HTMLElement ? footer.getBoundingClientRect() : null;
+  const clipTop = Math.max(bodyRect.top + 12, 12);
+  const clipBottom = Math.min(
+    footerRect ? footerRect.top - 10 : bodyRect.bottom - 12,
+    bodyRect.bottom - 12,
+    window.innerHeight - 12
+  );
 
-  const containers = [menuEl, scriptEl, ...paletteSources];
-
-  blockEditorDrake = dragula(containers, {
-    copy: (_el, source) => source !== scriptEl,
-    accepts: (_el, target) => target === scriptEl
-      || target === menuEl
-      || paletteSources.includes(target),
-    revertOnSpill: true,
-    moves: (el, source, handle) => {
-      if (source !== scriptEl) {
-        return el.classList.contains('kp-step')
-          && !handle?.closest?.('button, input, select, textarea, [data-toggle-dropdown], [data-kp-key-chip], .setup-select, .setup-select-trigger')
-          && getActiveSteps().length < STEP_LIMITS.maxSteps;
-      }
-      return !handle?.closest?.('input, select, button, textarea, [data-toggle-dropdown], [data-kp-key-chip], .setup-select, .setup-select-trigger');
-    }
-  });
-
-  blockEditorDrake.on('drag', (_el, source) => {
-    setPaletteDeleteState(root, source === scriptEl);
-  });
-
-  blockEditorDrake.on('over', (_el, container) => {
-    setPaletteDeleteState(root, container === menuEl);
-  });
-
-  blockEditorDrake.on('out', (_el, container) => {
-    if (container === menuEl) {
-      clearPaletteDeleteState(root);
-    }
-  });
-
-  blockEditorDrake.on('drop', (el, target, source, sibling) => {
-    clearPaletteDeleteState(root);
-    if (!target) {
-      rerenderAfterDrag(renderEditorOnly);
+  editorBody.querySelectorAll('.kp-canvas-brick .setup-select').forEach((select) => {
+    if (!(select instanceof HTMLElement)) {
       return;
     }
 
-    const steps = getActiveSteps();
-
-    if (source !== scriptEl) {
-      if (steps.length >= STEP_LIMITS.maxSteps) {
-        state.editor.validationMessage = `You can add up to ${STEP_LIMITS.maxSteps} steps.`;
-        rerenderAfterDrag(renderEditorOnly);
-        return;
-      }
-
-      const type = el.dataset.paletteStepType;
-      const siblingIndex = getRenderedStepIndex(sibling);
-      const insertIndex = Number.isInteger(siblingIndex) ? siblingIndex : steps.length;
-      steps.splice(insertIndex, 0, createStep(type));
-      syncActionTypeFromSteps();
-      state.editor.validationMessage = '';
-      rerenderAfterDrag(renderEditorOnly);
+    const menu = select.querySelector('.setup-select-menu');
+    if (!(menu instanceof HTMLElement)) {
       return;
     }
 
-    if (source === scriptEl) {
-      const fromIndex = getRenderedStepIndex(el);
-      if (!Number.isInteger(fromIndex) || fromIndex < 0 || fromIndex >= steps.length) {
-        renderEditorOnly();
-        return;
-      }
+    select.classList.remove('setup-select--drop-up');
+    select.style.removeProperty('--setup-select-menu-max-height');
 
-      if (target !== scriptEl) {
-        steps.splice(fromIndex, 1);
-        clearDelayUnitsForSelection();
-        syncActionTypeFromSteps();
-        state.editor.validationMessage = '';
-        rerenderAfterDrag(renderEditorOnly);
-        return;
-      }
+    if (!select.classList.contains('is-open')) {
+      return;
+    }
 
-      const siblingIndex = getRenderedStepIndex(sibling);
-      let toIndex = Number.isInteger(siblingIndex) ? siblingIndex : steps.length;
-      const [step] = steps.splice(fromIndex, 1);
-      if (fromIndex < toIndex) {
-        toIndex -= 1;
-      }
-      steps.splice(toIndex, 0, step);
-      clearDelayUnitsForSelection();
-      state.editor.validationMessage = '';
-      rerenderAfterDrag(renderEditorOnly);
+    const triggerRect = select.getBoundingClientRect();
+    const desiredHeight = Math.min(menu.scrollHeight || 0, Math.round(window.innerHeight * 0.4), 280);
+    const spaceBelow = Math.max(0, Math.floor(clipBottom - triggerRect.bottom - 8));
+    const spaceAbove = Math.max(0, Math.floor(triggerRect.top - clipTop - 8));
+    const shouldDropUp = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
+    const availableHeight = shouldDropUp ? spaceAbove : spaceBelow;
+
+    if (shouldDropUp) {
+      select.classList.add('setup-select--drop-up');
+    }
+
+    if (availableHeight > 0) {
+      select.style.setProperty('--setup-select-menu-max-height', `${Math.max(120, availableHeight)}px`);
     }
   });
-
-  blockEditorDrake.on('cancel', () => {
-    clearPaletteDeleteState(root);
-    rerenderAfterDrag(renderEditorOnly);
-  });
-
-  blockEditorDrake.on('dragend', () => {
-    clearPaletteDeleteState(root);
-  });
 }
 
-function syncSuggestedIcon() {
-  const suggestions = getSuggestedIcons(state.editor.draft, 1);
-  const topSuggestion = suggestions[0]?.id;
-  const currentIconId = state.editor.draft.iconId;
-  const canAutoApply = !state.editor.iconManuallySelected
-    && (currentIconId === DEFAULT_ICON_ID || currentIconId === state.editor.lastAutoSuggestedIconId || !currentIconId);
-
-  if (topSuggestion && canAutoApply) {
-    state.editor.draft.iconId = topSuggestion;
-    state.editor.lastAutoSuggestedIconId = topSuggestion;
-  }
-}
-
-function serialiseDraft(draft) {
-  return JSON.stringify(draft);
-}
-
-function hasEditorChanges() {
-  return serialiseDraft(state.editor.draft) !== state.editor.initialSnapshot;
-}
-
-function requestCloseEditor(renderAll) {
-  if (hasEditorChanges() && !window.confirm('Discard your unsaved button changes?')) {
+function syncAutoTextareaHeight(textarea) {
+  if (!(textarea instanceof HTMLTextAreaElement) || !textarea.classList.contains('kp-textarea--auto')) {
     return;
   }
-  closeEditor();
-  renderAll();
-}
-
-function currentAppConfig() {
-  return state.config.apps[state.activeApp];
-}
-
-function upsertCustomButton(button) {
-  const app = currentAppConfig();
-  app.customButtons ||= [];
-  const nextButton = deepClone(button);
-  nextButton.meta ||= {};
-  nextButton.meta.source = 'custom';
-  const index = app.customButtons.findIndex((entry) => entry?.id === nextButton.id);
-  if (index === -1) {
-    app.customButtons.unshift(nextButton);
-    return;
-  }
-  app.customButtons[index] = nextButton;
-}
-
-function removePreviousSlotAssignment(buttonId, keepIndex = null) {
-  currentSet().buttons = currentSet().buttons.map((button, index) => {
-    if (index === keepIndex) return button;
-    return button?.id === buttonId ? null : button;
-  });
-}
-
-function saveEditorDraft(markDirty, renderAll, renderEditorOnly) {
-  const error = validateButton(state.editor.draft);
-  state.editor.validationMessage = error;
-  if (error) {
-    renderEditorOnly();
-    return false;
-  }
-  if (state.editor.draft.meta?.source === 'preset') {
-    state.editor.draft.id = createId('btn');
-  }
-  state.editor.draft.meta ||= {};
-  state.editor.draft.meta.source = 'custom';
-  removePreviousSlotAssignment(state.editor.draft.id, state.editor.targetSlot);
-  if (state.editor.targetSlot !== null) {
-    currentSet().buttons[state.editor.targetSlot] = deepClone(state.editor.draft);
-  }
-  upsertCustomButton(state.editor.draft);
-  closeEditor();
-  markDirty();
-  renderAll();
-  return true;
-}
-
-function normaliseModifierToken(key, platform) {
-  if (key === 'Meta') {
-    return platform === 'mac' ? 'Command' : 'Win';
-  }
-  if (key === 'Alt') {
-    return platform === 'mac' ? 'Option' : 'Alt';
-  }
-  if (key === 'Control') {
-    return platform === 'mac' ? 'Control' : 'Ctrl';
-  }
-  if (key === 'Shift') {
-    return 'Shift';
-  }
-  return '';
-}
-
-function isModifierToken(token) {
-  return ['Command', 'Win', 'Shift', 'Control', 'Ctrl', 'Option', 'Alt'].includes(token);
-}
-
-function getOrderedModifierTokens(modifiers = []) {
-  const modifierOrder = ['Command', 'Win', 'Control', 'Ctrl', 'Option', 'Alt', 'Shift'];
-  return [...new Set((Array.isArray(modifiers) ? modifiers : []).filter((token) => isModifierToken(token)))]
-    .sort((left, right) => modifierOrder.indexOf(left) - modifierOrder.indexOf(right));
-}
-
-function getHeldComboKeys() {
-  const entries = Object.values(state.editor.recordingHeldKeys || {});
-  const modifierOrder = ['Command', 'Win', 'Control', 'Ctrl', 'Option', 'Alt', 'Shift'];
-  const modifiers = [];
-  const regularKeys = [];
-
-  entries.forEach((token) => {
-    if (isModifierToken(token)) {
-      modifiers.push(token);
-    } else {
-      regularKeys.push(token);
-    }
-  });
-
-  modifiers.sort((left, right) => modifierOrder.indexOf(left) - modifierOrder.indexOf(right));
-  return [...modifiers, ...regularKeys].slice(0, STEP_LIMITS.comboMaxKeys);
-}
-
-function normaliseKeyboardToken(event, platform) {
-  const modifierToken = normaliseModifierToken(event.key, platform);
-  if (modifierToken) {
-    return modifierToken;
-  }
-
-  const code = String(event.code || '');
-  if (/^Key[A-Z]$/.test(code)) {
-    return code.slice(3);
-  }
-  if (/^Digit[0-9]$/.test(code)) {
-    return code.slice(5);
-  }
-  if (/^Numpad[0-9]$/.test(code)) {
-    return code.replace('Numpad', 'Num');
-  }
-  if (/^F([1-9]|1[0-2])$/.test(event.key)) {
-    return event.key.toUpperCase();
-  }
-
-  const codeMap = {
-    Backquote: '`',
-    Minus: '-',
-    Equal: '=',
-    BracketLeft: '[',
-    BracketRight: ']',
-    Backslash: '\\',
-    Semicolon: ';',
-    Quote: "'",
-    Comma: ',',
-    Period: '.',
-    Slash: '/',
-    NumpadDecimal: 'Num.',
-    NumpadAdd: 'Num+',
-    NumpadSubtract: 'Num-',
-    NumpadMultiply: 'Num*',
-    NumpadDivide: 'Num/',
-    NumpadEnter: 'Enter'
-  };
-  if (codeMap[code]) {
-    return codeMap[code];
-  }
-
-  const keyMap = {
-    ' ': 'Space',
-    Spacebar: 'Space',
-    Escape: 'Escape',
-    Esc: 'Escape',
-    Enter: 'Enter',
-    Tab: 'Tab',
-    Backspace: 'Backspace',
-    Delete: 'Delete',
-    Insert: 'Insert',
-    Home: 'Home',
-    End: 'End',
-    PageUp: 'PageUp',
-    PageDown: 'PageDown',
-    ArrowLeft: 'ArrowLeft',
-    ArrowRight: 'ArrowRight',
-    ArrowUp: 'ArrowUp',
-    ArrowDown: 'ArrowDown',
-    CapsLock: 'CapsLock',
-    PrintScreen: 'PrintScreen'
-  };
-
-  const rawKey = String(event.key || '');
-  if (keyMap[rawKey]) {
-    return keyMap[rawKey];
-  }
-  if (rawKey.length === 1) {
-    return rawKey.toUpperCase();
-  }
-  return rawKey;
-}
-
-function swallowRecordingShortcutEvent(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  if (typeof event.stopImmediatePropagation === 'function') {
-    event.stopImmediatePropagation();
-  }
-}
-
-export function openEditor(prefill, mode = 'create', sourceButton = null) {
-  const existing = typeof prefill === 'number' ? currentSet().buttons[prefill] : (prefill || sourceButton);
-  state.editor.open = true;
-  state.editor.mode = typeof prefill === 'number' ? 'edit' : mode;
-  state.editor.currentStep = 0;
-  state.editor.targetSlot = typeof prefill === 'number'
-    ? prefill
-    : null;
-  state.editor.draft = normaliseButton(existing || { id: createId('btn') }, state.activeApp);
-  if (typeof prefill !== 'number' && sourceButton?.id) {
-    const assignedIndex = currentSet().buttons.findIndex((entry) => entry?.id === sourceButton.id);
-    state.editor.targetSlot = assignedIndex >= 0 ? assignedIndex : null;
-  }
-  if (!existing) {
-    state.editor.draft.id ||= createId('btn');
-    state.editor.draft.scope.apps = state.editor.draft.scope.apps.length ? state.editor.draft.scope.apps : [state.activeApp];
-    state.editor.draft.scope.platforms = state.editor.draft.scope.platforms.length ? state.editor.draft.scope.platforms : ['mac', 'win'];
-    syncScopeMappings();
-  }
-  state.editor.selectedApp = state.editor.draft.scope.apps[0] || state.activeApp;
-  state.editor.selectedPlatform = state.editor.draft.scope.platforms[0] || 'mac';
-  state.editor.validationMessage = '';
-  resetRecordingState();
-  resetComboDraftState();
-  state.editor.openDropdown = null;
-  state.editor.presetPickerOpen = false;
-  state.editor.blockEditor.expandedCategory = '';
-  state.editor.blockEditor.collapsedCategories = {};
-  state.editor.blockEditor.delayUnits = {};
-  state.editor.blockEditor.showAdvancedSteps = false;
-  state.editor.iconManuallySelected = Boolean(existing?.iconId && existing.iconId !== DEFAULT_ICON_ID);
-  state.editor.lastAutoSuggestedIconId = null;
-  state.editor.iconBrowser.open = false;
-  state.editor.iconBrowser.query = '';
-  state.editor.iconBrowser.category = 'all';
-  state.editor.iconBrowser.pendingIconId = state.editor.draft.iconId;
-  syncSuggestedIcon();
-  state.editor.initialSnapshot = serialiseDraft(state.editor.draft);
-}
-
-export function closeEditor() {
-  state.editor.open = false;
-  resetRecordingState();
-  resetComboDraftState();
-  state.editor.validationMessage = '';
-  state.editor.iconBrowser.open = false;
-  state.editor.openDropdown = null;
-  state.editor.currentStep = 0;
-  state.editor.initialSnapshot = '';
-  state.editor.presetPickerOpen = false;
-  destroyBlockEditorDrake();
+  textarea.style.height = 'auto';
+  textarea.style.height = `${textarea.scrollHeight}px`;
 }
 
 export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly }) {
@@ -701,6 +104,7 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
     return;
   }
   editorBound = true;
+  const recordingHandlers = createRecordingHandlers(renderEditorOnly);
 
   els.editorCancel.addEventListener('click', () => {
     requestCloseEditor(renderAll);
@@ -708,7 +112,7 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
 
   els.editorDone.addEventListener('click', () => {
     if (state.editor.mode !== 'edit' && state.editor.currentStep < 2) {
-      advanceEditorStep(renderEditorOnly);
+      advanceEditorStep(renderEditorOnly, clearKeystrokeUiState);
       return;
     }
     saveEditorDraft(markDirty, renderAll, renderEditorOnly);
@@ -716,7 +120,7 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
 
   els.editorRemove.addEventListener('click', () => {
     if (state.editor.mode !== 'edit') return;
-    requestCloseEditor(renderAll);
+    deleteEditorDraft(markDirty, renderAll);
   });
 
   els.editorBody.addEventListener('click', (event) => {
@@ -734,16 +138,7 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
       if (dropdownKey === 'editorActionType') {
         state.editor.draft.actionType = dropdownValue;
         syncSuggestedIcon();
-        state.editor.draft.scope.apps.forEach((appId) => {
-          state.editor.draft.scope.platforms.forEach((platform) => {
-            const mapping = ensureAppPlatformMapping(state.editor.draft, appId, platform);
-            if (dropdownValue === 'single') {
-              mapping.steps = [mapping.steps[0] || createStep('keyCombo')];
-            } else if (mapping.steps.length < 2) {
-              mapping.steps = [mapping.steps[0] || createStep('keyCombo'), createStep('delay')];
-            }
-          });
-        });
+        ensureActionTypeSteps(dropdownValue);
         renderEditorOnly();
         return;
       }
@@ -752,7 +147,7 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
         const stepIndex = Number(indexValue);
         const step = getActiveSteps()[stepIndex];
         if (step) {
-          if (field === 'key' || field === 'repeatKey') {
+          if (field === 'key' || field === 'repeatKey' || field === 'pressKey') {
             step.key = dropdownValue;
           } else if (field === 'delayUnit') {
             setDelayUnit(stepIndex, dropdownValue);
@@ -805,13 +200,23 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
       return;
     }
 
+    if (event.target.closest('[data-editor-nav="cancel"]')) {
+      els.editorCancel.click();
+      return;
+    }
+
     if (event.target.closest('[data-editor-nav="next"]')) {
-      advanceEditorStep(renderEditorOnly);
+      advanceEditorStep(renderEditorOnly, clearKeystrokeUiState);
       return;
     }
 
     if (event.target.closest('[data-editor-nav="save"]')) {
       els.editorDone.click();
+      return;
+    }
+
+    if (event.target.closest('[data-editor-nav="delete"]')) {
+      els.editorRemove.click();
       return;
     }
 
@@ -923,7 +328,7 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
     const categoryToggle = event.target.closest('[data-kp-toggle-category]');
     if (categoryToggle) {
       const category = categoryToggle.dataset.kpToggleCategory;
-      state.editor.blockEditor.expandedCategory = state.editor.blockEditor.expandedCategory === category ? '' : category;
+      state.editor.blockEditor.expandedCategory = category;
       rerender(renderEditorOnly);
       return;
     }
@@ -1078,6 +483,7 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
     }
     if (stepField === 'value') {
       step.value = event.target.value;
+      syncAutoTextareaHeight(event.target);
       return;
     }
     if (stepField === 'durationMs') {
@@ -1142,59 +548,12 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
     }
   });
 
-  const handleRecordingKeydown = (event) => {
-    if (!state.editor.open || state.editor.recordingTarget === null) return;
-    const step = getActiveSteps()[state.editor.recordingTarget];
-    if (!step || !['keyCombo', 'keyPress'].includes(step.type)) return;
-    swallowRecordingShortcutEvent(event);
-    if (event.repeat) return;
+  window.addEventListener('keydown', recordingHandlers.handleRecordingKeydown, true);
+  window.addEventListener('keyup', recordingHandlers.handleRecordingKeyup, true);
+  document.addEventListener('keydown', recordingHandlers.handleRecordingKeydown, true);
+  document.addEventListener('keyup', recordingHandlers.handleRecordingKeyup, true);
 
-    const token = normaliseKeyboardToken(event, state.editor.selectedPlatform);
-    const heldKeys = state.editor.recordingHeldKeys || {};
-    const alreadyHeld = Object.values(heldKeys).includes(token);
-    const heldCount = Object.keys(heldKeys).length;
-    if (!alreadyHeld && heldCount < STEP_LIMITS.comboMaxKeys) {
-      heldKeys[event.code || token] = token;
-    }
-
-    const keys = getHeldComboKeys();
-    state.editor.recordingKeys = keys;
-    if (keys.length) {
-      state.editor.recordingPreviewKeys = keys;
-      setComboDraft(state.editor.recordingTarget, keys);
-      if (keys.length === STEP_LIMITS.comboMaxKeys) {
-        state.editor.validationMessage = `You can use up to ${STEP_LIMITS.comboMaxKeys} keys together.`;
-      } else {
-        state.editor.validationMessage = 'Press the keys you want, then stop.';
-      }
-    }
-    scheduleRecordingRender(renderEditorOnly);
-  };
-
-  const handleRecordingKeyup = (event) => {
-    if (!state.editor.open || state.editor.recordingTarget === null) return;
-    const step = getActiveSteps()[state.editor.recordingTarget];
-    if (!step || !['keyCombo', 'keyPress'].includes(step.type)) return;
-    swallowRecordingShortcutEvent(event);
-    const releaseKey = event.code || normaliseKeyboardToken(event, state.editor.selectedPlatform);
-    delete state.editor.recordingHeldKeys[releaseKey];
-    const keys = getHeldComboKeys();
-    state.editor.recordingKeys = keys;
-    state.editor.recordingPreviewKeys = keys;
-    scheduleRecordingRender(renderEditorOnly);
-  };
-
-  window.addEventListener('keydown', handleRecordingKeydown, true);
-  window.addEventListener('keyup', handleRecordingKeyup, true);
-  document.addEventListener('keydown', handleRecordingKeydown, true);
-  document.addEventListener('keyup', handleRecordingKeyup, true);
-
-  window.addEventListener('blur', () => {
-    if (!state.editor.open || state.editor.recordingTarget === null) return;
-    stopShortcutRecording(renderEditorOnly, { preserveMessage: true });
-    state.editor.validationMessage = 'Recording stopped because this window was no longer active.';
-    renderEditorOnly();
-  });
+  window.addEventListener('blur', recordingHandlers.handleWindowBlur);
 
   els.editorBody.addEventListener('dragstart', (event) => {
     const chip = event.target.closest('[data-kp-key-chip]');
@@ -1248,12 +607,20 @@ export function initEditorHandlers(els, { markDirty, renderAll, renderEditorOnly
 
 export function refreshEditorInteractions(els, renderEditorOnly) {
   const meta = els._editorRenderMeta || {};
+  els.editorBody.querySelectorAll('.kp-textarea--auto').forEach((textarea) => {
+    syncAutoTextareaHeight(textarea);
+  });
+  updateStepDropdownPlacement(els);
   if (!meta.open || meta.currentStep !== 1) {
     destroyBlockEditorDrake();
     return;
   }
-  if (!meta.stepContentChanged && blockEditorDrake) {
+  if (els._editorDndSignature === meta.dndSignature && hasBlockEditorDrake()) {
+    if (meta.stepContentChanged) {
+      syncBlockEditorDragula(renderEditorOnly, els.editorBody);
+    }
     return;
   }
+  els._editorDndSignature = meta.dndSignature;
   syncBlockEditorDragula(renderEditorOnly, els.editorBody);
 }

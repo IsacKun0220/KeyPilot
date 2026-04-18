@@ -1,4 +1,5 @@
 import { SET_LIMIT } from '../constants.js';
+import { normaliseSlotButtons } from '../services/normalise.js';
 import { state } from '../state.js';
 import { createId } from '../utils/ids.js';
 
@@ -71,9 +72,11 @@ export function initDashboardHandlers(els, { renderSidebar, renderDashboard, ren
   els.sidebarNav.addEventListener('click', (event) => {
     const button = event.target.closest('[data-app-id]');
     if (!button) return;
+    if (button.dataset.appId === state.activeApp) return;
     state.activeSetByApp[state.activeApp] = state.activeSetIndex;
     state.activeApp = button.dataset.appId;
     state.manualAppSelectionUntil = Date.now() + MANUAL_APP_SELECTION_HOLD_MS;
+    state.runtimeAppSyncPaused = true;
     state.config.activeApp = state.activeApp;
     restoreSetIndexForApp(state.activeApp);
     markDirty();
@@ -107,7 +110,7 @@ export function initDashboardHandlers(els, { renderSidebar, renderDashboard, ren
         showToast('Each app can have up to 5 sets.');
         return;
       }
-      sets.push({ id: createId('set'), name: '', buttons: [] });
+      sets.push({ id: createId('set'), name: '', buttons: normaliseSlotButtons([], state.activeApp) });
       state.activeSetIndex = sets.length - 1;
       state.activeSetByApp[state.activeApp] = state.activeSetIndex;
       state.editingSetIndex = state.activeSetIndex;
@@ -175,9 +178,8 @@ export function initDashboardHandlers(els, { renderSidebar, renderDashboard, ren
     if (removeButton) {
       event.stopPropagation();
       state.config.apps[state.activeApp].sets[state.activeSetIndex].buttons[Number(removeButton.dataset.removeSlot)] = null;
-      markDirty();
+      markDirty({ silent: true, refreshSidebar: false, refreshDashboard: false, refreshLibrary: false });
       renderDashboard({ refreshDnd: true });
-      renderLibrary();
       return;
     }
 

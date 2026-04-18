@@ -1,5 +1,6 @@
 import { APP_IDS } from '../shared/app-meta.js';
 import { createDefaultSingleButton } from './schema.js';
+import { DEFAULT_BLOCK_CATEGORY } from './render/mapping-editor-defs.js';
 
 export const state = {
   config: null,
@@ -12,6 +13,8 @@ export const state = {
   editingSetIndex: null,
   editingSetDraft: '',
   manualAppSelectionUntil: 0,
+  runtimeAppSyncPaused: false,
+  showSaveBadge: false,
   dirty: false,
   saveState: 'idle',
   libraryFilters: {
@@ -39,7 +42,7 @@ export const state = {
     comboDraftKeys: [],
     openDropdown: null,
     blockEditor: {
-      expandedCategory: '',
+      expandedCategory: DEFAULT_BLOCK_CATEGORY,
       collapsedCategories: {},
       delayUnits: {}
     },

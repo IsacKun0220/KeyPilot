@@ -2,12 +2,14 @@ import { loadConfig, loadConnectionStatus, loadPairing, loadRuntimeState, saveCo
 import { state } from './state.js';
 import { renderSidebar, renderDashboard } from './render/dashboard.js';
 import { getFilteredLibraryButtons, renderLibrary } from './render/library.js';
-import { renderEditor } from './render/editor.js?v=20260415g';
+import { renderEditor } from './render/editor.js?v=20260417d';
 import { renderConnectionStatus, renderPairingModal, showToast } from './render/status.js';
 import { initDashboardHandlers } from './handlers/dashboard.js';
 import { initLibraryHandlers } from './handlers/library.js';
 import { initDndHandlers, refreshDndInteractions } from './handlers/dnd.js';
-import { initEditorHandlers, openEditor, refreshEditorInteractions } from './handlers/editor.js?v=20260415g';
+import { initEditorHandlers, openEditor, refreshEditorInteractions } from './handlers/editor.js?v=20260417d';
+import { createSetupSaveController } from './save-controller.js';
+import { createSetupRuntimeSync } from './runtime-sync.js';
 
 const channel = new BroadcastChannel('keypilot');
 
@@ -42,10 +44,6 @@ const els = {
   toast: document.getElementById('toast')
 };
 
-let saveTimer = null;
-let saveInFlight = false;
-let saveQueued = false;
-let runtimeStateTimer = null;
 let editorInteractionFrame = 0;
 
 function scheduleEditorInteractionRefresh() {
@@ -58,22 +56,6 @@ function scheduleEditorInteractionRefresh() {
       refreshEditorInteractions(els, renderEditorOnly);
     }
   });
-}
-
-function scheduleAutoSave() {
-  clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => {
-    persistConfig().catch(() => showToast(els, 'Failed to save configuration.'));
-  }, 120);
-}
-
-function markDirty(value = true) {
-  state.dirty = value;
-  state.saveState = value ? 'saving' : 'idle';
-  renderConnectionStatus(els);
-  if (value) {
-    scheduleAutoSave();
-  }
 }
 
 function renderSidebarOnly() {
@@ -114,110 +96,39 @@ function renderEditorOnly() {
   }
 }
 
-function applyActiveApp(appId) {
-  if (!state.config?.apps?.[appId]) {
-    return;
-  }
-  if (state.activeApp === appId) {
-    return;
-  }
-  state.activeSetByApp[state.activeApp] = state.activeSetIndex;
-  state.activeApp = appId;
-  const sets = state.config.apps[appId]?.sets || [];
-  const nextIndex = state.activeSetByApp[appId] || 0;
-  state.activeSetIndex = Math.max(0, Math.min(nextIndex, Math.max(sets.length - 1, 0)));
-  renderSidebarOnly();
-  renderDashboardOnly({ refreshDnd: true });
-  renderLibraryOnly();
-  renderEditorOnly();
+const saveController = createSetupSaveController({
+  state,
+  saveConfig,
+  showToast,
+  renderConnectionStatus,
+  renderSidebarOnly,
+  renderDashboardOnly,
+  renderLibraryOnly,
+  channel,
+  els
+});
+
+const runtimeSync = createSetupRuntimeSync({
+  state,
+  els,
+  loadConnectionStatus,
+  loadRuntimeState,
+  renderConnectionStatus,
+  renderSidebarOnly,
+  renderDashboardOnly,
+  renderLibraryOnly,
+  renderEditorOnly
+});
+
+function persistConfig() {
+  return saveController.persistConfig(markDirty);
 }
 
-async function refreshConnectionStatus() {
-  try {
-    const payload = await loadConnectionStatus();
-    const nextConnected = Boolean(payload.connection?.connected);
-    const nextLastSeenAt = payload.connection?.lastSeenAt || null;
-    const nextRuntimeUrl = payload.runtimeUrl || state.pairing?.runtimeUrl;
-    const nextPreviewUrl = payload.previewUrl || state.pairing?.previewUrl;
-    const nextLocalUrls = payload.localUrls || state.pairing?.localUrls;
-    const changed = nextConnected !== state.connectionState.connected
-      || nextLastSeenAt !== state.connectionState.lastSeenAt
-      || nextRuntimeUrl !== state.pairing?.runtimeUrl
-      || nextPreviewUrl !== state.pairing?.previewUrl
-      || JSON.stringify(nextLocalUrls || []) !== JSON.stringify(state.pairing?.localUrls || []);
-
-    if (!changed) {
-      return;
-    }
-
-    state.connectionState.connected = nextConnected;
-    state.connectionState.lastSeenAt = nextLastSeenAt;
-    if (state.pairing) {
-      state.pairing.runtimeUrl = nextRuntimeUrl;
-      state.pairing.previewUrl = nextPreviewUrl;
-      state.pairing.localUrls = nextLocalUrls;
-    }
-    renderConnectionStatus(els);
-  } catch (_) {
-    if (!state.connectionState.connected && !state.connectionState.lastSeenAt) {
-      return;
-    }
-    state.connectionState.connected = false;
-    state.connectionState.lastSeenAt = null;
-    renderConnectionStatus(els);
+function markDirty(value = true) {
+  if (typeof value === 'object' && value !== null) {
+    return saveController.markDirty(persistConfig, true, value);
   }
-}
-
-async function refreshRuntimeApp() {
-  if (state.editor.open) {
-    return;
-  }
-  if (Date.now() < state.manualAppSelectionUntil) {
-    return;
-  }
-  try {
-    const payload = await loadRuntimeState();
-    if (payload?.activeApp) {
-      applyActiveApp(payload.activeApp);
-    }
-  } catch (_) {}
-}
-
-function startRuntimeStatePolling() {
-  clearInterval(runtimeStateTimer);
-  runtimeStateTimer = setInterval(() => {
-    refreshRuntimeApp().catch(() => {});
-  }, 1000);
-}
-
-async function persistConfig() {
-  if (saveInFlight) {
-    saveQueued = true;
-    return;
-  }
-  saveInFlight = true;
-  state.config.activeApp = state.activeApp;
-  state.config.activeProfile = state.activeProfile;
-  try {
-    state.config = await saveConfig(state.config);
-    state.saveState = 'idle';
-    markDirty(false);
-    channel.postMessage({ type: 'config-updated' });
-    renderSidebarOnly();
-    renderDashboardOnly({ refreshDnd: true });
-    renderLibraryOnly();
-    renderConnectionStatus(els);
-  } catch (error) {
-    state.saveState = 'error';
-    renderConnectionStatus(els);
-    throw error;
-  } finally {
-    saveInFlight = false;
-    if (saveQueued) {
-      saveQueued = false;
-      scheduleAutoSave();
-    }
-  }
+  return saveController.markDirty(persistConfig, value);
 }
 
 async function init() {
@@ -258,11 +169,11 @@ async function init() {
     els.modalBackdrop.classList.remove('open');
     els.pairingModal.classList.remove('open');
   });
-  refreshConnectionStatus().catch(() => {});
-  refreshRuntimeApp().catch(() => {});
-  startRuntimeStatePolling();
+  runtimeSync.refreshConnectionStatus().catch(() => {});
+  runtimeSync.refreshRuntimeApp().catch(() => {});
+  runtimeSync.startRuntimeStatePolling();
   setInterval(() => {
-    refreshConnectionStatus().catch(() => {});
+    runtimeSync.refreshConnectionStatus().catch(() => {});
   }, 4000);
 }
 

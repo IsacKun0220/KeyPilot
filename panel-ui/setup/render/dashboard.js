@@ -1,8 +1,8 @@
 import { APP_GROUPS, APP_LABELS, SET_LIMIT, SLOT_LIMIT } from '../constants.js';
 import { APP_ICON_FALLBACKS, APP_LOGOS, APP_NAV_LABELS } from '../../shared/app-meta.js';
 import { state } from '../state.js';
-import { escapeHtml, createButtonMarkup } from '../utils/dom.js';
-import { getResolvedSteps } from '../services/mapping.js';
+import { escapeHtml } from '../utils/dom.js';
+import { renderSetupButtonCardContent } from './button-card.js';
 
 function currentApp() {
   return state.config.apps[state.activeApp];
@@ -10,6 +10,55 @@ function currentApp() {
 
 function currentSet() {
   return currentApp().sets[state.activeSetIndex];
+}
+
+function renderSlotCard(button, index) {
+  if (!button) {
+    return `
+      <button type="button" class="slot-card setup-button-card empty" data-slot-index="${index}">
+        <span class="slot-position">${index + 1}</span>
+        <span class="slot-empty-icon"></span>
+        <span class="empty-hint">Drop or edit</span>
+      </button>
+    `;
+  }
+
+  return `
+    <button type="button" class="slot-card setup-button-card ${button.actionType === 'single' ? 'is-single-button' : ''}" data-slot-index="${index}" draggable="true">
+      <span class="slot-position">${index + 1}</span>
+      <span class="remove-slot" data-remove-slot="${index}" aria-label="Remove from slot" title="Remove from slot">✕</span>
+      ${renderSetupButtonCardContent(button, { appId: state.activeApp, platform: state.os })}
+    </button>
+  `;
+}
+
+function ensureSlotShells(els) {
+  const slotShells = [...(els.slotRow?.querySelectorAll('.slot-shell') || [])];
+  const hasPermanentShells = slotShells.length === SLOT_LIMIT
+    && slotShells.every((shell, index) => Number(shell.dataset.slotIndex) === index);
+
+  if (hasPermanentShells) {
+    return slotShells;
+  }
+
+  const shellsMarkup = Array.from({ length: SLOT_LIMIT }, (_, index) => `
+    <div class="slot-shell" data-slot-index="${index}" data-slot-label="${index + 1}"></div>
+  `).join('');
+  els.slotRow.innerHTML = shellsMarkup;
+  return [...els.slotRow.querySelectorAll('.slot-shell')];
+}
+
+function renderSlotRow(els, set) {
+  const slotShells = ensureSlotShells(els);
+
+  slotShells.forEach((shell, index) => {
+    const cardMarkup = renderSlotCard(set.buttons[index], index);
+    if (shell._slotCardMarkup === cardMarkup) {
+      return;
+    }
+    shell.innerHTML = cardMarkup;
+    shell._slotCardMarkup = cardMarkup;
+  });
 }
 
 function renderAppTitle(appId) {
@@ -27,24 +76,8 @@ function renderAppTitle(appId) {
   `;
 }
 
-function describeButton(button) {
-  const steps = getResolvedSteps(button, state.activeApp, state.os);
-  if (!steps.length) return 'No action set';
-  if (button.actionType === 'sequence') {
-    if (steps.some((step) => step.type === 'text' && step.value)) return 'Types text as part of a short sequence';
-    if (steps.some((step) => step.type === 'repeatKeyPress')) return 'Runs a short repeated action';
-    return 'Runs a short multi-step action';
-  }
-  const first = steps[0];
-  if (first.type === 'text' && first.value) return 'Types text';
-  if (first.type === 'repeatKeyPress') return 'Repeats a key action';
-  if (first.type === 'delay') return 'Pause action';
-  if (first.type === 'keyPress') return 'Single key action';
-  return 'Single shortcut';
-}
-
 export function renderSidebar(els) {
-  els.sidebarNav.innerHTML = Object.entries(APP_GROUPS).map(([group, appIds]) => `
+  const markup = Object.entries(APP_GROUPS).map(([group, appIds]) => `
     <section class="nav-group">
       <h3>${group}</h3>
       ${appIds.map((appId) => `
@@ -59,14 +92,17 @@ export function renderSidebar(els) {
       `).join('')}
     </section>
   `).join('');
+  if (els._sidebarMarkup !== markup) {
+    els.sidebarNav.innerHTML = markup;
+    els._sidebarMarkup = markup;
+  }
 }
 
 export function renderDashboard(els) {
   const app = currentApp();
   const set = currentSet();
-  els.appHeading.innerHTML = renderAppTitle(state.activeApp);
-
-  els.setTabs.innerHTML = app.sets.map((entry, index) => `
+  const headingMarkup = renderAppTitle(state.activeApp);
+  const setTabsMarkup = app.sets.map((entry, index) => `
     <div class="set-tab ${index === state.activeSetIndex ? 'active' : ''} ${state.editingSetIndex === index ? 'editing' : ''}">
       ${state.editingSetIndex === index
         ? `<input
@@ -82,33 +118,14 @@ export function renderDashboard(els) {
     </div>
   `).join('') + `<button type="button" class="btn dashed" id="newSetButton" ${app.sets.length >= SET_LIMIT ? 'disabled' : ''}>+ New set</button>`;
 
-  els.slotRow.innerHTML = new Array(SLOT_LIMIT).fill(null).map((_, index) => {
-    const button = set.buttons[index];
-    if (!button) {
-      return `
-        <div class="slot-shell" data-slot-index="${index}">
-          <button type="button" class="slot-card empty" data-slot-index="${index}">
-            <span class="slot-position">${index + 1}</span>
-            <span class="slot-empty-icon"></span>
-            <span class="empty-hint">Drop or edit</span>
-          </button>
-        </div>
-      `;
-    }
+  if (els._dashboardHeadingMarkup !== headingMarkup) {
+    els.appHeading.innerHTML = headingMarkup;
+    els._dashboardHeadingMarkup = headingMarkup;
+  }
+  if (els._dashboardSetTabsMarkup !== setTabsMarkup) {
+    els.setTabs.innerHTML = setTabsMarkup;
+    els._dashboardSetTabsMarkup = setTabsMarkup;
+  }
 
-    return `
-      <div class="slot-shell" data-slot-index="${index}">
-        <button type="button" class="slot-card" data-slot-index="${index}">
-          <span class="slot-position">${index + 1}</span>
-          <span class="remove-slot" data-remove-slot="${index}">✕</span>
-          <span class="slot-icon">${createButtonMarkup(button)}</span>
-          <span class="slot-copy">
-            <span class="slot-label">${escapeHtml(button.label)}</span>
-            <span class="slot-meta">${button.actionType === 'sequence' ? 'Sequence' : 'Shortcut'}</span>
-            <span class="slot-description">${escapeHtml(describeButton(button))}</span>
-          </span>
-        </button>
-      </div>
-    `;
-  }).join('');
+  renderSlotRow(els, set);
 }

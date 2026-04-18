@@ -114,21 +114,23 @@
   position: sticky;
   top: var(--setup-topbar-offset);
   align-self: start;
-  max-height: calc(100vh - var(--setup-topbar-offset));
+  height: calc(100vh - var(--setup-topbar-offset));
   overflow-y: auto;
-  border-right: 1px solid var(--border);
   background: var(--surface-2);
   padding: 20px 12px;
+  box-shadow: inset -1px 0 0 var(--border);
 }
 
 .setup-main {
   grid-area: main;
   min-width: 0;
   min-height: 0;
+  height: calc(100vh - var(--setup-topbar-offset));
 }
 
 .content-wrap {
   min-height: 100%;
+  height: 100%;
 }
 
 .setup-shell.editor-open .topbar,
@@ -140,9 +142,25 @@
 }
 
 .content-panel {
+  height: 100%;
+  min-height: 0;
   padding: 28px 32px;
   display: grid;
   gap: 22px;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.workspace-sticky-section {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  align-content: start;
+  background: var(--bg);
+  padding: 0 0 20px;
+  margin: 0;
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.12);
 }
 
 .content-head {
@@ -150,6 +168,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+  margin-top: -6px;
+  margin-bottom: 8px;
 }
 
 .content-title h1 {
@@ -163,16 +183,16 @@
 .app-title-row {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
 }
 
 .app-title-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
 }
 
 .app-title-name {
@@ -183,27 +203,27 @@
 }
 
 .content-title .app-title-mark .app-nav-item__logo {
-  width: 36px;
-  height: 36px;
-  flex-basis: 36px;
-}
-
-.content-title .app-title-mark .app-nav-item__logo--word,
-.content-title .app-title-mark .app-nav-item__logo--excel,
-.content-title .app-title-mark .app-nav-item__logo--powerpoint {
   width: 40px;
   height: 40px;
   flex-basis: 40px;
 }
 
+.content-title .app-title-mark .app-nav-item__logo--word,
+.content-title .app-title-mark .app-nav-item__logo--excel,
+.content-title .app-title-mark .app-nav-item__logo--powerpoint {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+}
+
 .content-title .app-title-mark .app-nav-item__logo.is-lettermark {
-  font-size: 19px;
+  font-size: 21px;
 }
 
 .content-title .app-title-mark .app-nav-item__logo--word.is-lettermark,
 .content-title .app-title-mark .app-nav-item__logo--excel.is-lettermark,
 .content-title .app-title-mark .app-nav-item__logo--powerpoint.is-lettermark {
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .actions {
@@ -335,5 +355,14 @@
 
   .content-panel {
     padding: 22px 18px 24px;
+  }
+
+  .setup-main {
+    height: calc(100vh - var(--setup-topbar-offset));
+  }
+
+  .workspace-sticky-section {
+    top: 0;
+    padding-bottom: 14px;
   }
 }

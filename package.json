@@ -7,6 +7,10 @@
     "ui:install": "npm install --prefix panel-ui",
     "ui:build:css": "npm run --prefix panel-ui build:css",
     "ui:watch:css": "npm run --prefix panel-ui watch:css",
-    "setup:helper": "cd helper && go build -o shortcut-helper main.go"
+    "setup:helper": "cd helper && go build -o shortcut-helper main.go",
+    "test:e2e": "node --test tests/setup-block-editor-dnd.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.52.0"
   }
 }

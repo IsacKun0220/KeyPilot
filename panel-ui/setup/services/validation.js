@@ -1,8 +1,7 @@
 import { APP_LABELS, STEP_LIMITS, SUPPORTED_PRESS_KEYS } from '../constants.js';
+import '../../shared/runtime-core.js';
 
-function isModifierToken(token) {
-  return ['Command', 'Win', 'Control', 'Ctrl', 'Option', 'Alt', 'Shift'].includes(token);
-}
+const { isModifierToken } = globalThis.KeyPilotCore;
 
 export function validateStep(step, index) {
   if (!step || typeof step !== 'object') {

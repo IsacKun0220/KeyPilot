@@ -1,12 +1,11 @@
+import '../../shared/runtime-core.js';
+
+const { createId: createSharedId, createSlug: createSharedSlug } = globalThis.KeyPilotCore;
+
 export function createSlug(value = '') {
-  return String(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 48);
+  return createSharedSlug(value, 48);
 }
 
 export function createId(prefix = 'id') {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return createSharedId(prefix);
 }
-
