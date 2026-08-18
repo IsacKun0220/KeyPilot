@@ -1,5 +1,8 @@
 export async function getJson(url, options) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, {
+    cache: 'no-store',
+    ...options
+  });
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText || ''}`.trim());
   }

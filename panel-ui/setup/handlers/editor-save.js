@@ -1,6 +1,7 @@
 import { DEFAULT_ICON_ID } from '../../shared/icons/index.js';
 import { APP_IDS, PLATFORM_IDS } from '../constants.js';
 import { state } from '../state.js';
+import { syncMirroredPlatformMappings } from '../services/mapping.js';
 import { validateButton } from '../services/validation.js';
 import { normaliseButton } from '../services/normalise.js';
 import { getSuggestedIcons } from '../render/icon-suggestions.js';
@@ -43,6 +44,14 @@ export function openEditor(prefill, mode = 'create', sourceButton = null) {
   state.editor.currentStep = 0;
   state.editor.targetSlot = typeof prefill === 'number' ? prefill : null;
   state.editor.draft = normaliseButton(existing || { id: createId('btn') }, state.activeApp);
+  state.editor.draft.scope.apps.forEach((appId) => {
+    syncMirroredPlatformMappings(
+      state.editor.draft,
+      appId,
+      state.os,
+      state.editor.draft.scope.platforms
+    );
+  });
   if (typeof prefill !== 'number' && sourceButton?.id) {
     const assignedIndex = currentSet().buttons.findIndex((entry) => entry?.id === sourceButton.id);
     state.editor.targetSlot = assignedIndex >= 0 ? assignedIndex : null;
@@ -54,7 +63,9 @@ export function openEditor(prefill, mode = 'create', sourceButton = null) {
     syncScopeMappings();
   }
   state.editor.selectedApp = state.editor.draft.scope.apps[0] || state.activeApp;
-  state.editor.selectedPlatform = state.editor.draft.scope.platforms[0] || 'mac';
+  state.editor.selectedPlatform = state.editor.draft.scope.platforms.includes(state.os)
+    ? state.os
+    : (state.editor.draft.scope.platforms[0] || 'mac');
   state.editor.validationMessage = '';
   resetRecordingState();
   resetComboDraftState();
@@ -159,6 +170,15 @@ export function deleteEditorDraft(markDirty, renderAll) {
 }
 
 export function saveEditorDraft(markDirty, renderAll, renderEditorOnly) {
+  state.editor.draft.scope.apps.forEach((appId) => {
+    syncMirroredPlatformMappings(
+      state.editor.draft,
+      appId,
+      state.os,
+      state.editor.draft.scope.platforms
+    );
+  });
+
   const error = validateButton(state.editor.draft);
   state.editor.validationMessage = error;
   if (error) {

@@ -12,17 +12,23 @@ export function createPanelRuntimeController({ els, panelState, renderPanel, bin
   async function loadRuntime() {
     const isFirstLoad = panelState.config === null;
     const previousConfigVersion = knownConfigVersion;
-    const [{ config, configVersion }, { platform }] = await Promise.all([
+    const previousActiveApp = panelState.activeApp;
+    const [{ config, configVersion }, { platform }, runtimeState] = await Promise.all([
       getJson('/api/config'),
-      getJson('/api/platform')
+      getJson('/api/platform'),
+      getJson('/api/state')
     ]);
     panelState.config = normaliseConfig(config);
     panelState.platform = mapPlatform(platform);
-    if (isFirstLoad) {
-      panelState.activeApp = panelState.config.activeApp || 'word';
+    if (typeof runtimeState?.autoSwitchEnabled === 'boolean') {
+      panelState.config.autoSwitchEnabled = runtimeState.autoSwitchEnabled;
+    }
+    const nextActiveApp = runtimeState?.activeApp || panelState.config.activeApp || 'word';
+    if (isFirstLoad || nextActiveApp !== panelState.activeApp) {
+      panelState.activeApp = nextActiveApp;
     }
     if (configVersion !== undefined) knownConfigVersion = configVersion;
-    if (isFirstLoad || previousConfigVersion !== knownConfigVersion) {
+    if (isFirstLoad || previousConfigVersion !== knownConfigVersion || previousActiveApp !== panelState.activeApp) {
       renderPanel(els);
     }
     bindEvents();
@@ -30,15 +36,18 @@ export function createPanelRuntimeController({ els, panelState, renderPanel, bin
 
   async function pollServerState() {
     try {
-      const { activeApp, configVersion } = await getJson('/api/state');
+      const { activeApp, configVersion, autoSwitchEnabled } = await getJson('/api/state');
       if (knownConfigVersion !== -1 && configVersion !== knownConfigVersion) {
         await loadRuntime();
         return;
       }
       knownConfigVersion = configVersion;
+      if (typeof autoSwitchEnabled === 'boolean') {
+        panelState.config.autoSwitchEnabled = autoSwitchEnabled;
+      }
 
       if (
-        panelState.config?.autoSwitchEnabled !== false &&
+        autoSwitchEnabled !== false &&
         activeApp &&
         activeApp !== panelState.activeApp
       ) {

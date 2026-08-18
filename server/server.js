@@ -17,14 +17,27 @@ let runtimeState = {
   configVersion: 0
 };
 
-let lastAppCheck = { ts: 0, app: null, browser: '', url: '' };
+let lastAppCheck = { ts: 0, app: null, browser: '', title: '', url: '' };
 const APP_CHECK_CACHE_MS = 600;
+
+const VIRTUAL_INTERFACE_PATTERN = /(nord|vpn|tun|tap|tailscale|zerotier|hamachi|wireguard|docker|wsl|vmware|virtual|hyper-v|vethernet|loopback|bluetooth)/i;
+const PREFERRED_INTERFACE_PATTERN = /(wi-?fi|wlan|wireless|ethernet)/i;
+
+function isKeyPilotWindowSnapshot(result) {
+  const title = String(result?.title || '');
+  const url = String(result?.url || '');
+  return /keypilot/i.test(title) || /\/(panel|setup)\.html/i.test(url);
+}
 
 async function detectForegroundApp() {
   if (Date.now() - lastAppCheck.ts < APP_CHECK_CACHE_MS) return lastAppCheck;
-  let result = { app: null, browser: '', url: '' };
+  let result = { app: null, browser: '', title: '', url: '' };
   if (os.platform() === 'darwin') result = await detectActiveAppMac();
   if (os.platform() === 'win32') result = await detectActiveAppWindows();
+  if (isKeyPilotWindowSnapshot(result) && (lastAppCheck.app || lastAppCheck.browser || lastAppCheck.url)) {
+    lastAppCheck = { ...lastAppCheck, ts: Date.now() };
+    return lastAppCheck;
+  }
   lastAppCheck = { ts: Date.now(), ...result };
   return lastAppCheck;
 }
@@ -43,7 +56,6 @@ async function loadConfig() {
   try {
     const raw = await fsp.readFile(CONFIG_PATH, 'utf8');
     const config = ensureConfigShape(JSON.parse(raw));
-    runtimeState.activeApp = config.activeApp;
     runtimeState.autoSwitchEnabled = config.autoSwitchEnabled;
     return config;
   } catch (_) {
@@ -55,7 +67,6 @@ async function loadConfig() {
 
 async function saveConfig(config) {
   const normalised = ensureConfigShape(config);
-  runtimeState.activeApp = normalised.activeApp;
   runtimeState.autoSwitchEnabled = normalised.autoSwitchEnabled;
   runtimeState.configVersion += 1;
   await fsp.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
@@ -86,18 +97,51 @@ function mapForegroundApp(name, title, url) {
       if (/excel\.office\.com|officeapps\.live\.com\/x\/|excel\.new/.test(u)) return 'excel';
       if (/powerpoint\.office\.com|officeapps\.live\.com\/p\/|powerpoint\.new/.test(u)) return 'powerpoint';
     }
-    // Title-based fallback for browsers without AppleScript URL access
+    // Title-based fallback for browsers without URL access on Windows.
+    // Check Sheets/Slides before generic docs.google.com because those titles
+    // often still contain the docs.google.com host.
     if (!t) return null;
-    if (/google docs|docs\.google\.com/.test(t)) return 'docs';
-    if (/google sheets|sheets\.google\.com/.test(t)) return 'sheets';
-    if (/google slides|slides\.google\.com/.test(t)) return 'slides';
-    if (/microsoft word|\bword online\b|\bword\b/.test(t)) return 'word';
-    if (/microsoft excel|\bexcel online\b|\bexcel\b/.test(t)) return 'excel';
-    if (/microsoft powerpoint|\bpowerpoint online\b|\bpowerpoint\b/.test(t)) return 'powerpoint';
+    if (
+      /google sheets|sheets\.google\.com/.test(t) ||
+      /google 試算表|google sheet/.test(t) ||
+      /(?:^|\s|[-|:])sheet\d*\b/.test(t) ||
+      /spreadsheet/i.test(title || '') ||
+      /試算表/.test(title || '')
+    ) return 'sheets';
+    if (
+      /google slides|slides\.google\.com/.test(t) ||
+      /google 簡報|google slide/.test(t) ||
+      /(?:^|\s|[-|:])slides?\b/.test(t) ||
+      /\bpresentation\b/.test(t) ||
+      /簡報/.test(title || '')
+    ) return 'slides';
+    if (
+      /google docs/.test(t) ||
+      /google 文件|google doc/.test(t) ||
+      /docs\.google\.com\/document/.test(t) ||
+      (/docs\.google\.com/.test(t) && !/spreadsheets|presentation|sheets\.google\.com|slides\.google\.com/.test(t)) ||
+      /(?:^|\s|[-|:])docs?\b/.test(t) ||
+      /\bdocument\b/.test(t) ||
+      /文件/.test(title || '')
+    ) return 'docs';
+    if (/microsoft word|\bword online\b|\bword\b|word\.office\.com/.test(t)) return 'word';
+    if (/microsoft excel|\bexcel online\b|\bexcel\b|excel\.office\.com/.test(t)) return 'excel';
+    if (/microsoft powerpoint|\bpowerpoint online\b|\bpowerpoint\b|powerpoint\.office\.com/.test(t)) return 'powerpoint';
     return null;
   }
 
   return null;
+}
+
+function getForegroundSnapshotFromWindowsResult(processName, title) {
+  const browser = String(processName || '').toLowerCase();
+  const windowTitle = String(title || '');
+  return {
+    app: mapForegroundApp(browser, windowTitle, ''),
+    browser,
+    title: windowTitle,
+    url: ''
+  };
 }
 
 // Map a lowercased process name to the exact AppleScript application name
@@ -144,13 +188,14 @@ function detectActiveAppMac() {
       return frontApp & "|" & frontTitle & "|" & frontURL
     `;
     require('child_process').execFile('osascript', ['-e', script], { timeout: 1200 }, (error, stdout) => {
-      if (error) { resolve({ app: null, browser: '', url: '' }); return; }
+      if (error) { resolve({ app: null, browser: '', title: '', url: '' }); return; }
       const parts = String(stdout || '').trim().split('|');
       const procName = parts[0].toLowerCase();
+      const title = parts[1] || '';
       const url = parts[2] || '';
-      const app = mapForegroundApp(procName, parts[1] || '', url);
+      const app = mapForegroundApp(procName, title, url);
       const browser = resolveAppleScriptBrowserName(procName);
-      resolve({ app, browser, url });
+      resolve({ app, browser, title, url });
     });
   });
 }
@@ -169,33 +214,67 @@ public class KP{
 }
 "@ -ErrorAction SilentlyContinue
 $h=[KP]::GetForegroundWindow();$sb=New-Object System.Text.StringBuilder 512
-[KP]::GetWindowText($h,$sb,512)|Out-Null;$pid=0
-[KP]::GetWindowThreadProcessId($h,[ref]$pid)|Out-Null
-$p=Get-Process -Id $pid -ErrorAction SilentlyContinue
+[KP]::GetWindowText($h,$sb,512)|Out-Null;$windowPid=0
+[KP]::GetWindowThreadProcessId($h,[ref]$windowPid)|Out-Null
+$p=Get-Process -Id $windowPid -ErrorAction SilentlyContinue
 if($p){$p.ProcessName+"|"+$sb.ToString()}`.trim();
     require('child_process').execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], { timeout: 4000 }, (error, stdout) => {
-      if (error) { resolve(null); return; }
+      if (error) { resolve({ app: null, browser: '', title: '', url: '' }); return; }
       const parts = String(stdout || '').trim().split('|');
-      resolve({ app: mapForegroundApp(parts[0].toLowerCase(), parts[1] || '', ''), browser: '', url: '' });
+      const processName = parts[0] || '';
+      const title = parts.slice(1).join('|');
+      resolve(getForegroundSnapshotFromWindowsResult(processName, title));
     });
   });
 }
 
 function getRuntimeUrls() {
   const nets = os.networkInterfaces();
-  const localUrls = [];
-  Object.values(nets).forEach((entries) => {
+  const configuredHost = String(process.env.KEYPILOT_HOST || '').trim();
+  if (configuredHost) {
+    const runtimeUrl = `http://${configuredHost}:${PORT}/panel.html`;
+    return {
+      runtimeUrl,
+      localUrls: [runtimeUrl]
+    };
+  }
+
+  const candidates = [];
+  Object.entries(nets).forEach(([name, entries]) => {
     (entries || []).forEach((entry) => {
-      if (entry && entry.family === 'IPv4' && !entry.internal) {
-        localUrls.push(`http://${entry.address}:${PORT}/panel.html`);
-      }
+      const family = entry?.family;
+      const isIPv4 = family === 'IPv4' || family === 4;
+      if (!entry || !isIPv4 || entry.internal || !entry.address) return;
+      candidates.push({
+        address: entry.address,
+        interfaceName: name,
+        score: scoreNetworkInterface(name, entry.address)
+      });
     });
   });
-  const uniqueUrls = [...new Set(localUrls)];
+
+  candidates.sort((a, b) => b.score - a.score || a.interfaceName.localeCompare(b.interfaceName) || a.address.localeCompare(b.address));
+
+  const uniqueUrls = [...new Set(candidates.map((candidate) => `http://${candidate.address}:${PORT}/panel.html`))];
   return {
     runtimeUrl: uniqueUrls[0] || `http://localhost:${PORT}/panel.html`,
     localUrls: uniqueUrls
   };
+}
+
+function scoreNetworkInterface(name, address) {
+  let score = 0;
+  const lowerName = String(name || '').toLowerCase();
+
+  if (PREFERRED_INTERFACE_PATTERN.test(lowerName)) score += 40;
+  if (VIRTUAL_INTERFACE_PATTERN.test(lowerName)) score -= 80;
+
+  if (/^192\.168\./.test(address)) score += 30;
+  else if (/^10\./.test(address)) score += 25;
+  else if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(address)) score += 25;
+  else if (/^169\.254\./.test(address)) score -= 60;
+
+  return score;
 }
 
 function getPanelConnectionStatus() {
@@ -316,6 +395,17 @@ app.get('/active-app', async (req, res) => {
   res.json({ activeApp: APP_IDS.includes(result.app) ? result.app : null });
 });
 
+app.get('/api/active-app-debug', async (req, res) => {
+  let detected = { app: null, browser: '', title: '', url: '' };
+  if (os.platform() === 'darwin') detected = await detectActiveAppMac();
+  if (os.platform() === 'win32') detected = await detectActiveAppWindows();
+  res.json({
+    platform: os.platform(),
+    detected,
+    cached: lastAppCheck
+  });
+});
+
 app.get('/api/platform', (req, res) => {
   res.json({ platform: os.platform() });
 });
@@ -362,7 +452,8 @@ app.post('/trigger', async (req, res) => {
       // Pass the last-detected tab URL and browser so execution can focus the
       // exact window/tab rather than just activating the browser application.
       activeUrl: lastAppCheck.url || '',
-      activeBrowser: lastAppCheck.browser || ''
+      activeBrowser: lastAppCheck.browser || '',
+      activeTitle: lastAppCheck.title || ''
     });
 
     res.json({ ok: true, output });
@@ -374,17 +465,30 @@ app.post('/trigger', async (req, res) => {
   }
 });
 
-loadConfig()
-  .catch(() => {})
-  .finally(() => {
-    const server = app.listen(PORT, () => {
-      console.log(`KeyPilot server running on http://localhost:${PORT}/`);
+function startServer() {
+  return loadConfig()
+    .catch(() => {})
+    .finally(() => {
+      const server = app.listen(PORT, () => {
+        console.log(`KeyPilot server running on http://localhost:${PORT}/`);
+      });
+      server.on('error', (error) => {
+        if (error?.code === 'EADDRINUSE') {
+          console.error(`Port ${PORT} is already in use. Stop the existing KeyPilot server or start this one with a different port, for example: PORT=3001 node server.js`);
+          process.exit(1);
+        }
+        throw error;
+      });
     });
-    server.on('error', (error) => {
-      if (error?.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Stop the existing KeyPilot server or start this one with a different port, for example: PORT=3001 node server.js`);
-        process.exit(1);
-      }
-      throw error;
-    });
-  });
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = {
+  app,
+  startServer,
+  mapForegroundApp,
+  getForegroundSnapshotFromWindowsResult
+};

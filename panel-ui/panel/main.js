@@ -31,14 +31,13 @@ channel.addEventListener('message', (event) => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    runtimeController.stopPolling();
-  } else {
-    if (phoneClient) presenceController.sendPresence().catch(() => {});
-    runtimeController.loadRuntime()
-      .then(() => runtimeController.pollServerState())
-      .catch(() => {});
-    runtimeController.startPolling();
+    return;
   }
+  if (phoneClient) presenceController.sendPresence().catch(() => {});
+  runtimeController.loadRuntime()
+    .then(() => runtimeController.pollServerState())
+    .catch(() => {});
+  runtimeController.startPolling();
 });
 
 window.addEventListener('pagehide', presenceController.sendDisconnect);

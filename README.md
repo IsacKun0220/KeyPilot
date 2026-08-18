@@ -1,7 +1,7 @@
 # KeyPilot 2.0
 
 KeyPilot is a mobile/browser shortcut panel for office productivity with a modular vanilla JS front end, a Node.js server, and a Go helper for shortcut execution.
-
+![alt text](image.png)
 ## Structure
 
 - `panel-ui/`

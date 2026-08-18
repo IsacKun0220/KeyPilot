@@ -15,21 +15,62 @@ const modifierSwap = {
   Alt: 'Option'
 };
 
+function convertStepForPlatform(step, convertModifiers = false) {
+  if (!step || typeof step !== 'object') {
+    return step;
+  }
+
+  if (!convertModifiers) {
+    return deepClone(step);
+  }
+
+  if (step.type === 'keyCombo') {
+    return {
+      ...deepClone(step),
+      keys: (Array.isArray(step.keys) ? step.keys : []).map((key) => modifierSwap[key] || key)
+    };
+  }
+
+  if (step.type === 'keyPress') {
+    return {
+      ...deepClone(step),
+      modifiers: (Array.isArray(step.modifiers) ? step.modifiers : []).map((key) => modifierSwap[key] || key)
+    };
+  }
+
+  return deepClone(step);
+}
+
 export function cloneMapping(button, sourceApp, sourcePlatform, targetApp, targetPlatform, convertModifiers = false) {
   const sourceSteps = button.mappings?.[sourceApp]?.[sourcePlatform]?.steps || [];
-  const clonedSteps = deepClone(sourceSteps).map((step) => {
-    if (!convertModifiers || step.type !== 'keyCombo') {
-      return step;
-    }
-    return {
-      ...step,
-      keys: step.keys.map((key) => modifierSwap[key] || key)
-    };
-  });
+  const clonedSteps = sourceSteps.map((step) => convertStepForPlatform(step, convertModifiers));
 
   button.mappings[targetApp] ||= {};
   button.mappings[targetApp][targetPlatform] = { steps: clonedSteps };
   return clonedSteps;
+}
+
+export function syncMirroredPlatformMappings(button, appId, preferredSourcePlatform = 'mac', targetPlatforms = PLATFORM_IDS) {
+  const enabledPlatforms = (Array.isArray(targetPlatforms) ? targetPlatforms : PLATFORM_IDS).filter(Boolean);
+  if (!enabledPlatforms.includes('win')) {
+    return;
+  }
+  const sourcePlatform = enabledPlatforms.includes(preferredSourcePlatform)
+    ? preferredSourcePlatform
+    : enabledPlatforms[0];
+  const fallbackSourcePlatform = enabledPlatforms.find((platform) => (button.mappings?.[appId]?.[platform]?.steps || []).length);
+  const finalSourcePlatform = (button.mappings?.[appId]?.[sourcePlatform]?.steps || []).length
+    ? sourcePlatform
+    : fallbackSourcePlatform;
+
+  if (!finalSourcePlatform) {
+    return;
+  }
+
+  enabledPlatforms.forEach((platform) => {
+    if (platform === finalSourcePlatform) return;
+    cloneMapping(button, appId, finalSourcePlatform, appId, platform, platform !== finalSourcePlatform);
+  });
 }
 
 export function createDefaultMappings(appIds = [], platforms = PLATFORM_IDS, actionType = 'single') {

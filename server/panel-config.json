@@ -163,11 +163,11 @@
           "name": "Main",
           "buttons": [
             {
-              "id": "apply-link",
-              "label": "Apply Link",
-              "iconId": "link",
-              "category": "insert",
-              "actionType": "sequence",
+              "id": "bold",
+              "label": "Bold",
+              "iconId": "bold",
+              "category": "formatting",
+              "actionType": "single",
               "scope": {
                 "apps": [
                   "word",
@@ -188,26 +188,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Command",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -218,26 +199,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Ctrl",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -250,26 +212,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Command",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -280,26 +223,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Ctrl",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -312,26 +236,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Command",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -342,26 +247,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Ctrl",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -374,26 +260,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Command",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -404,26 +271,7 @@
                         "type": "keyCombo",
                         "keys": [
                           "Ctrl",
-                          "K"
-                        ]
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 500
-                      },
-                      {
-                        "type": "text",
-                        "value": "https://www.sofascore.com/"
-                      },
-                      {
-                        "type": "delay",
-                        "durationMs": 150
-                      },
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Enter"
+                          "B"
                         ]
                       }
                     ]
@@ -435,135 +283,7 @@
                 "version": 1
               }
             },
-            {
-              "id": "comment",
-              "label": "Comment",
-              "iconId": "comment",
-              "category": "review",
-              "actionType": "single",
-              "scope": {
-                "apps": [
-                  "word",
-                  "docs",
-                  "slides",
-                  "sheets"
-                ],
-                "platforms": [
-                  "mac",
-                  "win"
-                ]
-              },
-              "mappings": {
-                "word": {
-                  "mac": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Option",
-                          "A"
-                        ]
-                      }
-                    ]
-                  },
-                  "win": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Alt",
-                          "M"
-                        ]
-                      }
-                    ]
-                  }
-                },
-                "docs": {
-                  "mac": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Option",
-                          "M"
-                        ]
-                      }
-                    ]
-                  },
-                  "win": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Alt",
-                          "M"
-                        ]
-                      }
-                    ]
-                  }
-                },
-                "slides": {
-                  "mac": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Option",
-                          "M"
-                        ]
-                      }
-                    ]
-                  },
-                  "win": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Alt",
-                          "M"
-                        ]
-                      }
-                    ]
-                  }
-                },
-                "sheets": {
-                  "mac": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Command",
-                          "Option",
-                          "M"
-                        ]
-                      }
-                    ]
-                  },
-                  "win": {
-                    "steps": [
-                      {
-                        "type": "keyCombo",
-                        "keys": [
-                          "Ctrl",
-                          "Alt",
-                          "M"
-                        ]
-                      }
-                    ]
-                  }
-                }
-              },
-              "meta": {
-                "source": "preset",
-                "version": 1
-              }
-            },
+            null,
             null,
             null,
             null
@@ -2081,11 +1801,11 @@
                   },
                   {
                     "type": "text",
-                    "value": "PKKKKKKKKKKKKKK"
+                    "value": "Needs revision"
                   },
                   {
                     "type": "delay",
-                    "durationMs": 200
+                    "durationMs": 250
                   },
                   {
                     "type": "keyCombo",
@@ -2115,9 +1835,15 @@
                     "value": "Needs revision"
                   },
                   {
-                    "type": "keyPress",
-                    "key": "Enter",
-                    "modifiers": []
+                    "type": "delay",
+                    "durationMs": 250
+                  },
+                  {
+                    "type": "keyCombo",
+                    "keys": [
+                      "Ctrl",
+                      "Enter"
+                    ]
                   }
                 ]
               }
@@ -2139,7 +1865,8 @@
               "docs"
             ],
             "platforms": [
-              "mac"
+              "mac",
+              "win"
             ]
           },
           "mappings": {
@@ -2155,7 +1882,7 @@
                   },
                   {
                     "type": "delay",
-                    "durationMs": 200
+                    "durationMs": 250
                   },
                   {
                     "type": "text",
@@ -2163,12 +1890,42 @@
                   },
                   {
                     "type": "delay",
-                    "durationMs": 150
+                    "durationMs": 250
                   },
                   {
                     "type": "keyCombo",
                     "keys": [
                       "Command",
+                      "Enter"
+                    ]
+                  }
+                ]
+              },
+              "win": {
+                "steps": [
+                  {
+                    "type": "keyCombo",
+                    "keys": [
+                      "Ctrl",
+                      "K"
+                    ]
+                  },
+                  {
+                    "type": "delay",
+                    "durationMs": 250
+                  },
+                  {
+                    "type": "text",
+                    "value": "SLDPK"
+                  },
+                  {
+                    "type": "delay",
+                    "durationMs": 250
+                  },
+                  {
+                    "type": "keyCombo",
+                    "keys": [
+                      "Ctrl",
                       "Enter"
                     ]
                   }
@@ -2192,7 +1949,8 @@
               "docs"
             ],
             "platforms": [
-              "mac"
+              "mac",
+              "win"
             ]
           },
           "mappings": {
@@ -2208,7 +1966,7 @@
                   },
                   {
                     "type": "delay",
-                    "durationMs": 200
+                    "durationMs": 250
                   },
                   {
                     "type": "text",
@@ -2216,12 +1974,42 @@
                   },
                   {
                     "type": "delay",
-                    "durationMs": 200
+                    "durationMs": 250
                   },
                   {
                     "type": "keyCombo",
                     "keys": [
                       "Command",
+                      "Enter"
+                    ]
+                  }
+                ]
+              },
+              "win": {
+                "steps": [
+                  {
+                    "type": "keyCombo",
+                    "keys": [
+                      "Ctrl",
+                      "K"
+                    ]
+                  },
+                  {
+                    "type": "delay",
+                    "durationMs": 250
+                  },
+                  {
+                    "type": "text",
+                    "value": "DLLM"
+                  },
+                  {
+                    "type": "delay",
+                    "durationMs": 250
+                  },
+                  {
+                    "type": "keyCombo",
+                    "keys": [
+                      "Ctrl",
                       "Enter"
                     ]
                   }
@@ -2273,11 +2061,11 @@
                       },
                       {
                         "type": "text",
-                        "value": "PKKKKKKKKKKKKKK"
+                        "value": "Needs revision"
                       },
                       {
                         "type": "delay",
-                        "durationMs": 200
+                        "durationMs": 250
                       },
                       {
                         "type": "keyCombo",
@@ -2307,9 +2095,15 @@
                         "value": "Needs revision"
                       },
                       {
-                        "type": "keyPress",
-                        "key": "Enter",
-                        "modifiers": []
+                        "type": "delay",
+                        "durationMs": 250
+                      },
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "Enter"
+                        ]
                       }
                     ]
                   }
@@ -2331,7 +2125,8 @@
                   "docs"
                 ],
                 "platforms": [
-                  "mac"
+                  "mac",
+                  "win"
                 ]
               },
               "mappings": {
@@ -2347,7 +2142,7 @@
                       },
                       {
                         "type": "delay",
-                        "durationMs": 200
+                        "durationMs": 250
                       },
                       {
                         "type": "text",
@@ -2355,12 +2150,42 @@
                       },
                       {
                         "type": "delay",
-                        "durationMs": 150
+                        "durationMs": 250
                       },
                       {
                         "type": "keyCombo",
                         "keys": [
                           "Command",
+                          "Enter"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "K"
+                        ]
+                      },
+                      {
+                        "type": "delay",
+                        "durationMs": 250
+                      },
+                      {
+                        "type": "text",
+                        "value": "SLDPK"
+                      },
+                      {
+                        "type": "delay",
+                        "durationMs": 250
+                      },
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
                           "Enter"
                         ]
                       }
@@ -2384,7 +2209,8 @@
                   "docs"
                 ],
                 "platforms": [
-                  "mac"
+                  "mac",
+                  "win"
                 ]
               },
               "mappings": {
@@ -2400,7 +2226,7 @@
                       },
                       {
                         "type": "delay",
-                        "durationMs": 200
+                        "durationMs": 250
                       },
                       {
                         "type": "text",
@@ -2408,12 +2234,42 @@
                       },
                       {
                         "type": "delay",
-                        "durationMs": 200
+                        "durationMs": 250
                       },
                       {
                         "type": "keyCombo",
                         "keys": [
                           "Command",
+                          "Enter"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "K"
+                        ]
+                      },
+                      {
+                        "type": "delay",
+                        "durationMs": 250
+                      },
+                      {
+                        "type": "text",
+                        "value": "DLLM"
+                      },
+                      {
+                        "type": "delay",
+                        "durationMs": 250
+                      },
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
                           "Enter"
                         ]
                       }
@@ -2427,6 +2283,508 @@
               }
             },
             null,
+            null
+          ]
+        },
+        {
+          "id": "set-1776682930260-vudz2a",
+          "name": "dllm",
+          "buttons": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "id": "set-1776686155222-sc0zxd",
+          "name": "SLDP",
+          "buttons": [
+            {
+              "id": "bold",
+              "label": "Bold",
+              "iconId": "bold",
+              "category": "formatting",
+              "actionType": "single",
+              "scope": {
+                "apps": [
+                  "word",
+                  "powerpoint",
+                  "docs",
+                  "slides"
+                ],
+                "platforms": [
+                  "mac",
+                  "win"
+                ]
+              },
+              "mappings": {
+                "word": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "B"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "B"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "powerpoint": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "B"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "B"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "docs": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "B"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "B"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "slides": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "B"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "B"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "meta": {
+                "source": "preset",
+                "version": 1
+              }
+            },
+            {
+              "id": "italic",
+              "label": "Italic",
+              "iconId": "italic",
+              "category": "formatting",
+              "actionType": "single",
+              "scope": {
+                "apps": [
+                  "word",
+                  "powerpoint",
+                  "docs",
+                  "slides"
+                ],
+                "platforms": [
+                  "mac",
+                  "win"
+                ]
+              },
+              "mappings": {
+                "word": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "powerpoint": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "docs": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "slides": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "meta": {
+                "source": "preset",
+                "version": 1
+              }
+            },
+            {
+              "id": "underline",
+              "label": "Underline",
+              "iconId": "underline",
+              "category": "formatting",
+              "actionType": "single",
+              "scope": {
+                "apps": [
+                  "word",
+                  "powerpoint",
+                  "docs",
+                  "slides"
+                ],
+                "platforms": [
+                  "mac",
+                  "win"
+                ]
+              },
+              "mappings": {
+                "word": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "U"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "U"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "powerpoint": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "U"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "U"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "docs": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "U"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "U"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "slides": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "U"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "U"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "meta": {
+                "source": "preset",
+                "version": 1
+              }
+            },
+            {
+              "id": "italic",
+              "label": "Italic",
+              "iconId": "italic",
+              "category": "formatting",
+              "actionType": "single",
+              "scope": {
+                "apps": [
+                  "word",
+                  "powerpoint",
+                  "docs",
+                  "slides"
+                ],
+                "platforms": [
+                  "mac",
+                  "win"
+                ]
+              },
+              "mappings": {
+                "word": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "powerpoint": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "docs": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "slides": {
+                  "mac": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Command",
+                          "I"
+                        ]
+                      }
+                    ]
+                  },
+                  "win": {
+                    "steps": [
+                      {
+                        "type": "keyCombo",
+                        "keys": [
+                          "Ctrl",
+                          "I"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "meta": {
+                "source": "preset",
+                "version": 1
+              }
+            },
             null
           ]
         }
@@ -3306,6 +3664,17 @@
         {
           "id": "set-1",
           "name": "Set 1",
+          "buttons": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "id": "set-1776714566548-1hgzak",
+          "name": "dllm",
           "buttons": [
             null,
             null,

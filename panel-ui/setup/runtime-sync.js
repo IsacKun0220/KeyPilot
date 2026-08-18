@@ -10,6 +10,7 @@ export function createSetupRuntimeSync({ state, els, loadConnectionStatus, loadR
     }
     state.activeSetByApp[state.activeApp] = state.activeSetIndex;
     state.activeApp = appId;
+    state.config.activeApp = appId;
     const sets = state.config.apps[appId]?.sets || [];
     const nextIndex = state.activeSetByApp[appId] || 0;
     state.activeSetIndex = Math.max(0, Math.min(nextIndex, Math.max(sets.length - 1, 0)));
@@ -61,10 +62,14 @@ export function createSetupRuntimeSync({ state, els, loadConnectionStatus, loadR
     if (state.editor.open) {
       return;
     }
+    const now = Date.now();
+    if (state.runtimeAppSyncPaused && now >= state.manualAppSelectionUntil) {
+      state.runtimeAppSyncPaused = false;
+    }
     if (state.runtimeAppSyncPaused) {
       return;
     }
-    if (Date.now() < state.manualAppSelectionUntil) {
+    if (now < state.manualAppSelectionUntil) {
       return;
     }
     try {
